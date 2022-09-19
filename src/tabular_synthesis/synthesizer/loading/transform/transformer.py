@@ -16,17 +16,21 @@ class DataTransformer:
         self.mixed_columns = mixed_dict
         self.general_columns = general_list
         self.non_categorical_columns = non_categorical_list
+        self.description_long = ""
+        self.description_list = []
 
     def get_metadata(self):
 
         meta = []
-
+        self.description_long = ""
+        self.description_list = []
         for index in range(self.train_data.shape[1]):
             column = self.train_data.iloc[:, index]
             if index in self.categorical_columns:
                 if index in self.non_categorical_columns:
                     meta.append({
                         "name": index,
+                        "name_str": self.train_data.columns[index],
                         "type": "continuous",
                         "min": column.min(),
                         "max": column.max(),
@@ -35,6 +39,7 @@ class DataTransformer:
                     mapper = column.value_counts().index.tolist()
                     meta.append({
                         "name": index,
+                        "name_str": self.train_data.columns[index],
                         "type": "categorical",
                         "size": len(mapper),
                         "i2s": mapper
@@ -43,6 +48,7 @@ class DataTransformer:
             elif index in self.mixed_columns.keys():
                 meta.append({
                     "name": index,
+                    "name_str": self.train_data.columns[index],
                     "type": "mixed",
                     "min": column.min(),
                     "max": column.max(),
@@ -51,11 +57,11 @@ class DataTransformer:
             else:
                 meta.append({
                     "name": index,
+                    "name_str": self.train_data.columns[index],
                     "type": "continuous",
                     "min": column.min(),
                     "max": column.max(),
                 })
-
         return meta
 
     def fit(self):
@@ -140,6 +146,14 @@ class DataTransformer:
                 self.components.append(None)
                 self.output_info += [(info['size'], 'softmax')]
                 self.output_dim += info['size']
+            description = f"Column number {info['name']} is " \
+                          f"{info['name_str']}," \
+                          f" of type {info['type']}, " \
+                          f"and has length {self.output_info[-1][0]}"
+            self.description_long += description + "\n"
+            self.description_list.append(description)
+
+
         self.model = model
 
     def transform(self, data, ispositive=False, positive_list=None):

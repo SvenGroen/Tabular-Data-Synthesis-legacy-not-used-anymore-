@@ -1,11 +1,13 @@
-# Any Dataset
-**/*.csv
-
 # other repositories
 /repos
 
+# old code
+src/tabular_synthesis/model
+
 # any dataset
 /src/tabular_synthesis/data
+**/*.csv
+!tests/data/real_datasets/adult/mini_adult.csv
 
 # any personal notes
 /notes
