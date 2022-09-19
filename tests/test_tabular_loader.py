@@ -7,8 +7,12 @@ import torch
 
 from tabular_synthesis.synthesizer.loading.tabular_loader import TabularLoader
 import pytest
-
-data_location = "data/real_datasets/adult/mini_adult.csv"
+import os
+cwd = os.getcwd()
+if "tests" in cwd:
+    data_location = "data/real_datasets/adult/mini_adult.csv"
+else:
+    data_location = "tests/data/real_datasets/adult/mini_adult.csv"
 
 test = pd.read_csv(data_location)
 print(test)
