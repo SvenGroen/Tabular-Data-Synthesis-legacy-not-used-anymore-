@@ -1,4 +1,7 @@
 import pandas as pd
+import numpy as np
+import torch
+
 from .transform.transformer import DataTransformer, ImageTransformer
 from .transform.data_preparation import DataPrep
 from .sampling.sampler import Sampler
@@ -14,10 +17,14 @@ class TabularLoader(object):
                  mixed_columns: dict = None,
                  general_columns: list = None,
                  non_categorical_columns: list = None,
-                 integer_columns: list = None):
+                 integer_columns: list = None,
+                 batch_size: int = 32):
         print("Initializing Tabular Loader...")
         self.data = data
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.batch_size = batch_size
         self.test_ratio = test_ratio
+
         self.categorical_columns = [] or categorical_columns
         self.log_columns = [] or log_columns
         self.mixed_columns = {} or mixed_columns
@@ -43,8 +50,39 @@ class TabularLoader(object):
         self.data_transformer.fit()
         self.transformed_data = self.data_transformer.transform(self.data_prep.df.values)
         print("Setting up Sampler, Cond and ImageTransformer...")
-        self.sampler = Sampler(data=self.transformed_data,output_info=self.data_transformer.output_info)
-        self.cond_generator = Cond(data=self.transformed_data,output_info=self.data_transformer.output_info)
-        self.Image_transformer = ImageTransformer(side=32)
+        self.sampler = Sampler(data=self.transformed_data, output_info=self.data_transformer.output_info)
+        self.cond_generator = Cond(data=self.transformed_data, output_info=self.data_transformer.output_info)
+        self.cond_vector = self.cond_generator.sample_train(self.batch_size)
+        self.side = self.determine_image_side()
+        self.Image_transformer = ImageTransformer(side=self.side)
         print("Tabular Loader initialized successfully.")
 
+    def transform_to_image(self, data):
+        pass
+
+    def calculate_new_cond_vector(self):
+        self.cond_vector = self.cond_generator.sample_train(self.batch_size)
+        return self.cond_vector
+
+    def get_batch(self, image_shape=False):
+        c, mask, col, opt = self.calculate_new_cond_vector()
+        perm = np.arange(self.batch_size)
+        np.random.shuffle(perm)
+        c_perm = c[perm]
+        data_batch = self.sampler.sample(n=self.batch_size, col=col[perm], opt=opt[perm])
+        data_batch = torch.from_numpy(data_batch).to(self.device)
+        c = torch.from_numpy(c).to(self.device)
+        if image_shape:
+            data_batch = self.Image_transformer.transform(data_batch)
+
+        return data_batch, c, col[perm], opt[perm]
+
+    def determine_image_side(self):
+        sides = [4, 8, 16, 24, 32, 64, 128, 256, 512, 1024]
+        col_size_d = self.data_transformer.output_dim + self.cond_generator.n_opt
+        side = None
+        for i in sides:
+            if i * i >= col_size_d:
+                side = i
+                break
+        return side

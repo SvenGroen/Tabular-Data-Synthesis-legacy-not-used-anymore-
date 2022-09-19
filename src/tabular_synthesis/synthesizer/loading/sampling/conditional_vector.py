@@ -6,6 +6,15 @@ def random_choice_prob_index(a, axis=1):
     return (a.cumsum(axis=axis) > r).argmax(axis=axis)
 
 
+def random_choice_prob_index_sampling(probs, col_idx):
+    option_list = []
+    for i in col_idx:
+        pp = probs[i]
+        option_list.append(np.random.choice(np.arange(len(probs[i])), p=pp))
+
+    return np.array(option_list).reshape(col_idx.shape)
+
+
 def maximum_interval(output_info):
     max_interval = 0
     for item in output_info:
