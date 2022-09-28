@@ -18,12 +18,14 @@ class TabularLoader(object):
                  general_columns: list = None,
                  non_categorical_columns: list = None,
                  integer_columns: list = None,
-                 batch_size: int = 32):
+                 batch_size: int = 32,
+                 noise_dim: int = 100):
         print("Initializing Tabular Loader...")
         self.data = data
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
         self.test_ratio = test_ratio
+        self.noise_dim = noise_dim
 
         self.categorical_columns = [] or categorical_columns
         self.log_columns = [] or log_columns
@@ -68,21 +70,39 @@ class TabularLoader(object):
         c, mask, col, opt = self.calculate_new_cond_vector()
         perm = np.arange(self.batch_size)
         np.random.shuffle(perm)
-        c_perm = c[perm]
+        c = torch.from_numpy(c).to(self.device)
         data_batch = self.sampler.sample(n=self.batch_size, col=col[perm], opt=opt[perm])
         data_batch = torch.from_numpy(data_batch).to(self.device)
-        c = torch.from_numpy(c).to(self.device)
+        data_batch = torch.cat([data_batch, c[perm]], dim=1)
         if image_shape:
             data_batch = self.Image_transformer.transform(data_batch)
 
-        return data_batch, c, col[perm], opt[perm]
+        return data_batch, c[perm], col[perm], opt[perm]
 
     def determine_image_side(self):
         sides = [4, 8, 16, 24, 32, 64, 128, 256, 512, 1024]
-        col_size_d = self.data_transformer.output_dim + self.cond_generator.n_opt
+        col_size = self.data_transformer.output_dim + self.cond_generator.n_opt
         side = None
         for i in sides:
-            if i * i >= col_size_d:
+            if i * i >= col_size:
                 side = i
                 break
         return side
+
+    # def get_noise_batch(self,refresh_cond_vector=False, image_shape=False):
+    #     noise = torch.randn(self.batch_size, self.noise_dim, device=self.device)
+    #     if refresh_cond_vector:
+    #         self.calculate_new_cond_vector()
+    #     c, mask, col, opt = self.cond_vector
+    #     c = torch.from_numpy(c).to(self.device)
+    #     noise = torch.cat([noise, c], dim=1)
+    #     noise = noise.view(self.batch_size, self.noise_dim + self.cond_generator.n_opt, 1, 1)
+    #
+    #     if image_shape:
+    #         noise = self.Image_transformer.transform(noise)
+    #     return noise
+
+    def inverse_batch(self, batch):
+        result, num_invalid_ids = self.data_transformer.inverse_transform(batch)
+        result_df = self.data_prep.inverse_prep(result)
+        return result_df
