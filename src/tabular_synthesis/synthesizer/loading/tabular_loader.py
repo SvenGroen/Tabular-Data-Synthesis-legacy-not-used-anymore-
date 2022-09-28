@@ -104,5 +104,10 @@ class TabularLoader(object):
 
     def inverse_batch(self, batch):
         result, num_invalid_ids = self.data_transformer.inverse_transform(batch)
+        # resample if invalid ids are found
+        while len(result) < self.batch_size:
+            re, num_invalid_ids = self.data_transformer.inverse_transform(batch)
+            result = np.concatenate([result, re], axis=0)
+        result = result[:self.batch_size]
         result_df = self.data_prep.inverse_prep(result)
         return result_df
