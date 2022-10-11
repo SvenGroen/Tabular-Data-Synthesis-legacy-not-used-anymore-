@@ -5,7 +5,7 @@ Generative model training algorithm based on the CTABGANSynthesiser
 import pandas as pd
 import time
 from src.tabular_synthesis.synthesizer.loading.transform import DataPrep
-from src.tabular_synthesis.model.synthesizer.ctabgan_synthesizer import CTABGANSynthesizer
+from tabular_synthesis.synthesizer.model.synthesizer.ctabgan_synthesizer import CTABGANSynthesizer
 
 import warnings
 

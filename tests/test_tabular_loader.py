@@ -58,6 +58,11 @@ class TestTabularLoader(unittest.TestCase):
         inverse = tabular_loader.inverse_batch(batch)
         assert isinstance(inverse, pd.DataFrame)
         assert inverse.shape == (tabular_loader.batch_size, data.shape[1])
+        batch, c, col, opt = tabular_loader.get_batch(image_shape=True)
+        inverse = tabular_loader.inverse_batch(batch, image_shape=True)
+        assert isinstance(inverse, pd.DataFrame)
+        assert inverse.shape == (tabular_loader.batch_size, data.shape[1])
+
 
 
     # def test_noise_batch(self):
