@@ -20,10 +20,13 @@ class TabularLoader(object):
                  non_categorical_columns: list = None,
                  integer_columns: list = None,
                  batch_size: int = 32,
-                 noise_dim: int = 100):
+                 patch_size: int = 1,
+                 noise_dim: int = 100,
+                 problem_type: dict = None):
         print("Initializing Tabular Loader...")
         self.data = data
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.patch_size = patch_size
         self.batch_size = batch_size
         self.test_ratio = test_ratio
         self.noise_dim = noise_dim
@@ -34,6 +37,7 @@ class TabularLoader(object):
         self.general_columns = [] or general_columns
         self.non_categorical_columns = [] or non_categorical_columns
         self.integer_columns = [] or integer_columns
+        self.problem_type = {} or problem_type
         print("Preparing raw data...")
         self.data_prep = DataPrep(raw_df=self.data,
                                   categorical=categorical_columns,
@@ -68,21 +72,32 @@ class TabularLoader(object):
         return self.cond_vector
 
     def get_batch(self, image_shape=False):
-        c, mask, col, opt = self.calculate_new_cond_vector()
-        perm = np.arange(self.batch_size)
-        np.random.shuffle(perm)
-        c = torch.from_numpy(c).to(self.device)
-        data_batch = self.sampler.sample(n=self.batch_size, col=col[perm], opt=opt[perm])
-        # data_batch = data_batch.astype(np.float32)
-        data_batch = torch.from_numpy(data_batch).to(self.device)
-        data_batch = torch.cat([data_batch, c[perm]], dim=1)
-        if image_shape:
-            data_batch = self.Image_transformer.transform(data_batch)
+        patch_list = []
+        for i in range(self.patch_size):
+            c, mask, col, opt = self.calculate_new_cond_vector()
+            perm = np.arange(self.batch_size)
+            np.random.shuffle(perm)
+            c = torch.from_numpy(c).to(self.device)
+            data_batch = self.sampler.sample(n=self.batch_size, col=col[perm], opt=opt[perm])
+            # data_batch = data_batch.astype(np.float32)
+            data_batch = torch.from_numpy(data_batch).to(self.device)
+            data_batch = torch.cat([data_batch, c[perm]], dim=1)
+            if image_shape:
+                data_batch = self.Image_transformer.transform(data_batch)
+            c = torch.unsqueeze(c[perm], dim=1)
+            patch_list.append((data_batch, c, col[perm], opt[perm]))
 
-        return data_batch, c[perm], col[perm], opt[perm]
+        data_batch, c, col, opt = zip(*patch_list)
+        data_batch = torch.cat(data_batch, dim=1)
+        c = torch.cat(c, dim=1)
+        # col = torch.cat(col, dim=0)
+        # opt = torch.cat(opt, dim=0)
+        # return data_batch, c, col, opt
+        _c = torch.argmax(c, dim=-1) #evtl später?
+        return data_batch, c
 
     def determine_image_side(self):
-        sides = [32, 64, 128, 256]
+        sides = [64, 128, 256]
         col_size = self.data_transformer.output_dim + self.cond_generator.n_opt
         side = None
         for i in sides:
@@ -141,7 +156,10 @@ class TabularLoaderIterator(TabularLoader):
         if self.num_iterations == 0:
             raise StopIteration
         self.num_iterations -= 1
-        batch, c, col, opt = self.get_batch(image_shape=True)
+        # batch, c, col, opt = self.get_batch(image_shape=True)
+        batch, c = self.get_batch(image_shape=True)
         # transform batch tensor to double tensor
         batch = batch.type(torch.LongTensor)
-        return batch, {}
+        out=dict()
+        out["y"]=c
+        return batch, out

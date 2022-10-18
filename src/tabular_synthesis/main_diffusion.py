@@ -1,13 +1,14 @@
 import os
+import pandas as pd
+import torch as th
+import torch.distributed as dist
+import numpy as np
 
 from tabular_synthesis.synthesizer.loading.tabular_loader import TabularLoader, TabularLoaderIterator
 from tabular_synthesis.synthesizer.model.improved_diffusion import script_util, dist_util, logger
 from tabular_synthesis.synthesizer.model.improved_diffusion.resample import create_named_schedule_sampler
 from tabular_synthesis.synthesizer.model.improved_diffusion.train_util import TrainLoop
-import pandas as pd
-import torch as th
-import torch.distributed as dist
-import numpy as np
+
 
 dataset = "Adult"
 # Specifying the path of the dataset used

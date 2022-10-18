@@ -30,6 +30,8 @@ def classifier_defaults():
     """
     return dict(
         image_size=64,
+        in_channels=3,
+        out_channels=NUM_CLASSES,
         classifier_use_fp16=False,
         classifier_width=128,
         classifier_depth=2,
@@ -60,6 +62,7 @@ def model_and_diffusion_defaults():
         resblock_updown=False,
         use_fp16=False,
         use_new_attention_order=False,
+        in_channels=3,
     )
     res.update(diffusion_defaults())
     return res
@@ -95,11 +98,13 @@ def create_model_and_diffusion(
     resblock_updown,
     use_fp16,
     use_new_attention_order,
+    in_channels,
 ):
     model = create_model(
-        image_size,
-        num_channels,
-        num_res_blocks,
+        image_size=image_size,
+        num_channels=num_channels,
+        num_res_blocks=num_res_blocks,
+        in_channels=in_channels,
         channel_mult=channel_mult,
         learn_sigma=learn_sigma,
         class_cond=class_cond,
@@ -131,6 +136,7 @@ def create_model(
     image_size,
     num_channels,
     num_res_blocks,
+    in_channels=3,
     channel_mult="",
     learn_sigma=False,
     class_cond=False,
@@ -165,9 +171,9 @@ def create_model(
 
     return UNetModel(
         image_size=image_size,
-        in_channels=3,
+        in_channels=in_channels,
         model_channels=num_channels,
-        out_channels=(3 if not learn_sigma else 6),
+        out_channels=(in_channels if not learn_sigma else in_channels*2),
         num_res_blocks=num_res_blocks,
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
@@ -201,16 +207,20 @@ def create_classifier_and_diffusion(
     predict_xstart,
     rescale_timesteps,
     rescale_learned_sigmas,
+    in_channels,
+    out_channels,
 ):
     classifier = create_classifier(
-        image_size,
-        classifier_use_fp16,
-        classifier_width,
-        classifier_depth,
-        classifier_attention_resolutions,
-        classifier_use_scale_shift_norm,
-        classifier_resblock_updown,
-        classifier_pool,
+        image_size=image_size,
+        in_channels=in_channels,
+        out_channels=out_channels,
+        classifier_use_fp16=classifier_use_fp16,
+        classifier_width=classifier_width,
+        classifier_depth=classifier_depth,
+        classifier_attention_resolutions=classifier_attention_resolutions,
+        classifier_use_scale_shift_norm=classifier_use_scale_shift_norm,
+        classifier_resblock_updown=classifier_resblock_updown,
+        classifier_pool=classifier_pool,
     )
     diffusion = create_gaussian_diffusion(
         steps=diffusion_steps,
@@ -227,6 +237,8 @@ def create_classifier_and_diffusion(
 
 def create_classifier(
     image_size,
+    in_channels,
+    out_channels,
     classifier_use_fp16,
     classifier_width,
     classifier_depth,
@@ -252,9 +264,9 @@ def create_classifier(
 
     return EncoderUNetModel(
         image_size=image_size,
-        in_channels=3,
+        in_channels=in_channels,
         model_channels=classifier_width,
-        out_channels=1000,
+        out_channels=out_channels,
         num_res_blocks=classifier_depth,
         attention_resolutions=tuple(attention_ds),
         channel_mult=channel_mult,
