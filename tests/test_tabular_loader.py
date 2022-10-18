@@ -31,8 +31,6 @@ init_arguments = {"test_ratio": 0.20,
 
 class TestTabularLoader(unittest.TestCase):
 
-
-
     # @pytest.mark.skip()
     def test_init(self):
         data = pd.read_csv(data_location, sep=",")
@@ -42,22 +40,27 @@ class TestTabularLoader(unittest.TestCase):
     def test_get_batch(self):
         data = pd.read_csv(data_location, sep=",")
         tabular_loader = TabularLoader(data=data, **init_arguments)
-        batch, c, col, opt = tabular_loader.get_batch()
+        batch, c = tabular_loader.get_batch()
         assert isinstance(batch, torch.Tensor)
         assert batch.shape == (tabular_loader.batch_size,
                                tabular_loader.data_transformer.output_dim +
                                tabular_loader.cond_generator.n_opt)
-        assert all(k is not None for k in (c, col, opt))
-        batch, c, col, opt = tabular_loader.get_batch(image_shape=True)
+        assert all(k is not None for k in (c, batch))
+        batch, c = tabular_loader.get_batch(image_shape=True)
         assert batch.shape == (tabular_loader.batch_size, 1, tabular_loader.side, tabular_loader.side)
 
     def test_inverse_batch(self):
         data = pd.read_csv(data_location, sep=",")
         tabular_loader = TabularLoader(data=data, **init_arguments)
-        batch, c, col, opt = tabular_loader.get_batch()
+        batch, c = tabular_loader.get_batch()
         inverse = tabular_loader.inverse_batch(batch)
         assert isinstance(inverse, pd.DataFrame)
         assert inverse.shape == (tabular_loader.batch_size, data.shape[1])
+        batch, c = tabular_loader.get_batch(image_shape=True)
+        inverse = tabular_loader.inverse_batch(batch, image_shape=True)
+        assert isinstance(inverse, pd.DataFrame)
+        assert inverse.shape == (tabular_loader.batch_size, data.shape[1])
+
 
 
     # def test_noise_batch(self):
@@ -67,3 +70,20 @@ class TestTabularLoader(unittest.TestCase):
     #     noise = tabular_loader.get_noise_batch()
     #     assert isinstance(noise, torch.Tensor)
     #     assert noise.shape == (init_arguments["batch_size"], tabular_loader.data_transformer.output_dim)
+
+
+class TestImports(unittest.TestCase):
+    def test_imports(self):
+
+        import pandas as pd
+        import os
+        import torch
+        import tabular_synthesis.synthesizer.loading.tabular_loader
+        import tabular_synthesis.synthesizer.model.guided_diffusion
+        import argparse
+        import blobfile as bf
+        import torch.distributed as dist
+        import torch.nn.functional as F
+        assert True
+
+

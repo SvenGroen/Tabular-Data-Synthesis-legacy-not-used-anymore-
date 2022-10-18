@@ -2,7 +2,9 @@
 /repos
 
 # old code
-src/tabular_synthesis/model
+legacy
+# checkpoints
+src/tabular_synthesis/checkpoints
 
 # any dataset
 /src/tabular_synthesis/data
