@@ -31,13 +31,13 @@ class TabularLoader(object):
         self.test_ratio = test_ratio
         self.noise_dim = noise_dim
 
-        self.categorical_columns = [] or categorical_columns
-        self.log_columns = [] or log_columns
-        self.mixed_columns = {} or mixed_columns
-        self.general_columns = [] or general_columns
-        self.non_categorical_columns = [] or non_categorical_columns
-        self.integer_columns = [] or integer_columns
-        self.problem_type = {} or problem_type
+        self.categorical_columns = categorical_columns or []
+        self.log_columns = log_columns or []
+        self.mixed_columns = mixed_columns or {}
+        self.general_columns = general_columns or []
+        self.non_categorical_columns = non_categorical_columns or []
+        self.integer_columns = integer_columns or []
+        self.problem_type = problem_type or {}
         print("Preparing raw data...")
         self.data_prep = DataPrep(raw_df=self.data,
                                   categorical=categorical_columns,
@@ -93,7 +93,7 @@ class TabularLoader(object):
         # col = torch.cat(col, dim=0)
         # opt = torch.cat(opt, dim=0)
         # return data_batch, c, col, opt
-        _c = torch.argmax(c, dim=-1) #evtl später?
+        _c = torch.argmax(c, dim=-1)  # evtl später?
         return data_batch, c
 
     def determine_image_side(self):
@@ -105,6 +105,7 @@ class TabularLoader(object):
                 side = i
                 break
         return side
+
     def inverse_batch(self, batch, image_shape=False):
         if image_shape:
             batch = self.Image_transformer.inverse_transform(batch)
@@ -145,10 +146,8 @@ class TabularLoader(object):
     #     return noise
 
 
-
-
 class TabularLoaderIterator(TabularLoader):
-    def __init__(self, num_iterations=None, * args, **kwargs,):
+    def __init__(self, num_iterations=None, *args, **kwargs, ):
         super(TabularLoaderIterator, self).__init__(*args, **kwargs)
         self.num_iterations = num_iterations or 1000
 
@@ -160,6 +159,6 @@ class TabularLoaderIterator(TabularLoader):
         batch, c = self.get_batch(image_shape=True)
         # transform batch tensor to double tensor
         batch = batch.type(torch.LongTensor)
-        out=dict()
-        out["y"]=c
+        out = dict()
+        out["y"] = c
         return batch, out
