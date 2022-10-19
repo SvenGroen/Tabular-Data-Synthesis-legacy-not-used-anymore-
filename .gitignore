@@ -7,15 +7,17 @@ legacy
 src/tabular_synthesis/checkpoints
 
 # any dataset
-/src/tabular_synthesis/data
+/src/tabular_synthesis/data/real_datasets
 **/*.csv
 !tests/data/real_datasets/adult/mini_adult.csv
+!/src/tabular_synthesis/data/config/
 
 # any personal notes
 /notes
 
 #pycharm stuff
 **/.idea
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

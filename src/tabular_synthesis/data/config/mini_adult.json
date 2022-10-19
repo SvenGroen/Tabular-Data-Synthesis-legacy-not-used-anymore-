@@ -1,0 +1,34 @@
+{
+"dataset_name": "adult",
+"path":"real_datasets/adult/mini_adult.csv",
+"dataset_config": {
+	"categorical_columns" : [
+		"workclass",
+		"education",
+		"marital-status",
+		"occupation",
+		"relationship",
+		"race",
+		"gender",
+		"native-country",
+		"income"
+		],
+	"non_categorical_columns": [],
+	"log_columns":[],
+	"general_columns": ["age"],
+	"mixed_columns": {
+		"capital-loss": [0.0], 
+		"capital-gain": [0.0]
+		},
+	"integer_columns": [
+		"age", 
+		"fnlwgt", 
+		"capital-gain", 
+		"capital-loss", 
+		"hours-per-week"
+		],
+	"problem_type": { 
+		"Classification": "income"
+		}
+	}
+}
