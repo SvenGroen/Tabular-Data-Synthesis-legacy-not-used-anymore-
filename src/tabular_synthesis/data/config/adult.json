@@ -1,6 +1,5 @@
 {
 "dataset_name": "adult",
-"path":"real_datasets/adult/adult.data",
 "dataset_config": {
 	"categorical_columns" : [
 		"workclass",

@@ -209,6 +209,7 @@ def create_classifier_and_diffusion(
     rescale_learned_sigmas,
     in_channels,
     out_channels,
+    **kwargs,
 ):
     classifier = create_classifier(
         image_size=image_size,

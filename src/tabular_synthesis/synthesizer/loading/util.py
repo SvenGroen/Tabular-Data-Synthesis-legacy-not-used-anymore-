@@ -3,53 +3,34 @@ from pathlib import Path
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
-SUPPORTED = ["adult"]
-src = "src/" if Path.cwd().parts[-1] != "src" else ""
-DATA_PATH = Path.cwd() / (src+"tabular_synthesis/data")
-CONFIG_PATH = DATA_PATH / "config"
+
 
 def load_json(path):
     with open(path, 'r') as f:
         return json.load(f)
 
 
-def get_dataset_config(name:str):
+def get_dataset_config(path:str):
     try:
         # check if dataset is in config path
-
-        config = load_json(CONFIG_PATH/f"{name}.json")
+        config = load_json(path)
         return config
     except FileNotFoundError:
-        print(f"Dataset {name} not found in config path ({CONFIG_PATH}).\nSupported datasets: {SUPPORTED}")
+        print(f"Dataset config not found ({path})")
         return None 
 
-def get_dataset(name:str, azure=False):
-    name = name.lower()
-    config = get_dataset_config(name)
+def get_dataset(path:str, config_path:str):
+    config = get_dataset_config(config_path)
     if config:
-        if name == "adult":
+        if config["dataset_name"] == "adult" :
             features=["age","workclass","fnlwgt", "education", "education-num",	"marital-status", "occupation", "relationship", 
                         "race", "gender","capital-gain", "capital-loss", "hours-per-week","native-country", "income"]
 
-            if azure:
-                from azureml.core.dataset import Dataset
-                import azureml.core
-                from azureml.core import Workspace
-                import tempfile
-                import os
-                # Load the workspace from the saved config file
-                ws = Workspace.from_config(path="./")
-                dataset = Dataset.get_by_name(ws,"adult_train")
-
-                path = tempfile.mkdtemp()
-                with dataset.mount(path):
-                    df = pd.read_csv(path+"/"+os.listdir(path)[0], na_values="?")
-            else:
-                df=pd.read_csv(DATA_PATH/config["path"], names=features, sep=r'\s*,\s*', 
-                    engine='python', na_values="?")
+            df=pd.read_csv(path, names=features, sep=r'\s*,\s*', 
+                engine='python', na_values="?")
             return df, config
 
-        return pd.read_csv(DATA_PATH/config["path"]), config
+        return pd.read_csv(path), config
     else:
         return None
 

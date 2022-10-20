@@ -5,13 +5,15 @@ Train a noised image classifier on ImageNet.
 import argparse
 import os
 import blobfile as bf
+import joblib
 import torch as th
 import torch.distributed as dist
 import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
+from azureml.core import Run, Dataset
 
-from tabular_synthesis.synthesizer.model.guided_diffusion import dist_util, logger
+from tabular_synthesis.synthesizer.model.guided_diffusion import dist_util
 from tabular_synthesis.synthesizer.model.guided_diffusion.fp16_util import MixedPrecisionTrainer
 from tabular_synthesis.synthesizer.model.guided_diffusion.image_datasets import load_data
 from tabular_synthesis.synthesizer.model.guided_diffusion.resample import create_named_schedule_sampler
@@ -30,12 +32,13 @@ def main():
     args = create_argparser().parse_args()
 
     dist_util.setup_dist()
-    logger.configure()
+    run = Run.get_context()
 
+    print_CUDA_information()
 
-    logger.log("creating data loader...")
+    print("creating data loader...")
 
-    data, data_config = get_dataset(args.dataset_name,azure=False)
+    data, data_config = get_dataset(args.dataset_path, args.config_path)
     tabular_loader = TabularLoader(
         data=data,
         test_ratio=0.2,
@@ -52,7 +55,7 @@ def main():
     args.in_channels = tabular_loader.patch_size 
     args.out_channels = tabular_loader.patch_size * tabular_loader.cond_generator_train.n_opt
 
-    logger.log("creating model and diffusion...")
+    print("creating model and diffusion...")
     model, diffusion = create_classifier_and_diffusion(
         **args_to_dict(args, classifier_and_diffusion_defaults().keys())
     )
@@ -66,7 +69,7 @@ def main():
     if args.resume_checkpoint:
         resume_step = parse_resume_step_from_filename(args.resume_checkpoint)
         if dist.get_rank() == 0:
-            logger.log(
+            print(
                 f"loading model from checkpoint: {args.resume_checkpoint}... at {resume_step} step"
             )
             model.load_state_dict(
@@ -84,45 +87,28 @@ def main():
 
     model = DDP(
         model,
-        # device_ids=[dist_util.dev()],
-        device_ids=None,
-        # output_device=dist_util.dev(),
-        output_device=None,
+        device_ids= [dist_util.dev()] if th.cuda.is_available() else None,
+        output_device= [dist_util.dev()] if th.cuda.is_available() else None,
         broadcast_buffers=False,
         bucket_cap_mb=128,
         find_unused_parameters=False,
     )
 
 
-
-    # data = load_data(
-    #     data_dir=args.data_dir,
-    #     batch_size=args.batch_size,
-    #     image_size=args.image_size,
-    #     class_cond=True,
-    #     random_crop=True,
-    # )
-
-    args.val_data_dir = "test"
-    if args.val_data_dir:
-        val_data = val_loader
-    else:
-        val_data = None
-
-    logger.log(f"creating optimizer...")
+    print(f"creating optimizer...")
     opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
     if args.resume_checkpoint:
         opt_checkpoint = bf.join(
             bf.dirname(args.resume_checkpoint), f"opt{resume_step:06}.pt"
         )
-        logger.log(f"loading optimizer state from checkpoint: {opt_checkpoint}")
+        print(f"loading optimizer state from checkpoint: {opt_checkpoint}")
         opt.load_state_dict(
             dist_util.load_state_dict(opt_checkpoint, map_location=dist_util.dev())
         )
 
-    logger.log("training classifier model...")
+    print("training classifier model...")
 
-    def forward_backward_log(data_loader, prefix="train"):
+    def forward_backward_log(data_loader, prefix="train", log=True):
         batch, extra = next(data_loader)
         labels = extra["y"].to(dist_util.dev())
 
@@ -160,54 +146,50 @@ def main():
                 loss = F.cross_entropy(logits, sub_labels, reduction="none")
                 _test=loss.detach()
             
+            if log:
+                run.log(f"{prefix}_loss", loss.detach().mean().item())
+                run.log(f"{prefix}_acc@1", compute_top_k(
+                    logits, sub_labels, k=1, reduction="none").mean().item())
+                run.log(f"{prefix}_acc@5", compute_top_k(
+                    logits, sub_labels, k=5, reduction="none").mean().item())
+                run.log(f"{prefix}_loss_diff", (loss.detach() - _test).mean().item())
 
-            losses = {}
-            losses[f"{prefix}_loss"] = loss.detach()
-            losses[f"{prefix}_acc@1"] = compute_top_k(
-                logits, sub_labels, k=1, reduction="none"
-            )
-            losses[f"{prefix}_acc@5"] = compute_top_k(
-                logits, sub_labels, k=5, reduction="none"
-            )
-            losses[f"{prefix}_loss_diff"] = (loss.detach() - _test)
-            log_loss_dict(diffusion, sub_t, losses)
-            del losses
             loss = loss.mean()
+            
             if loss.requires_grad:
                 if i == 0:
                     mp_trainer.zero_grad()
                 mp_trainer.backward(loss * len(sub_batch) / len(batch))
 
     for step in range(args.iterations - resume_step):
-        logger.logkv("step", step + resume_step)
-        logger.logkv(
-            "samples",
-            (step + resume_step + 1) * args.batch_size * dist.get_world_size(),
-        )
         if args.anneal_lr:
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
-        forward_backward_log(data_loader=train_loader)
+        log = (step + resume_step) % args.log_interval == 0
+        if log:
+            run.log("step", step + resume_step)
+            run.log("samples",(step + resume_step + 1) * args.batch_size * dist.get_world_size())
+        forward_backward_log(data_loader=train_loader, log=log)
         mp_trainer.optimize(opt)
-        if val_data is not None and not step % args.eval_interval:
+        if val_loader is not None and not step % args.eval_interval:
             with th.no_grad():
                 with model.no_sync():
                     model.eval()
-                    forward_backward_log(val_data, prefix="val")
+                    forward_backward_log(val_loader, prefix="val")
                     model.train()
-        if not step % args.log_interval:
-            logger.dumpkvs()
         if (
             step
             and dist.get_rank() == 0
             and not (step + resume_step) % args.save_interval
         ):
-            logger.log("saving model...")
-            save_model(mp_trainer, opt, step + resume_step)
+            print("saving model...")
+            save_model(mp_trainer, opt, step + resume_step, path=args.output_path)
 
     if dist.get_rank() == 0:
-        logger.log("saving model...")
-        save_model(mp_trainer, opt, step + resume_step)
+        print("saving model...")
+        save_model(mp_trainer, opt, step + resume_step, path=args.output_path)
     dist.barrier()
+
+    run.complete()
 
 
 def set_annealed_lr(opt, base_lr, frac_done):
@@ -215,14 +197,29 @@ def set_annealed_lr(opt, base_lr, frac_done):
     for param_group in opt.param_groups:
         param_group["lr"] = lr
 
+def print_CUDA_information():
+    print("CUDA information:")
+    if th.cuda.is_available():
+        print(f"CUDA available: {th.cuda.is_available()}",
+        f"CUDA version: {th.version.cuda}",
+        f"Number of GPUs: {th.cuda.device_count()}",
+        f"Current GPU: {th.cuda.current_device()}",
+        f"Device name: {th.cuda.get_device_name(th.cuda.current_device())}",
+        f"Device capability: {th.cuda.get_device_capability(th.cuda.current_device())}",
+    )
+    else:
+        print("No CUDA available")
 
-def save_model(mp_trainer, opt, step):
+def save_model(mp_trainer, opt, step, path=None):
+    if path is None:
+        raise ValueError("Output path must be specified")
     if dist.get_rank() == 0:
+        os.makedirs(path, exist_ok=True)
         th.save(
             mp_trainer.master_params_to_state_dict(mp_trainer.master_params),
-            os.path.join(logger.get_dir(), f"model{step:06d}.pt"),
+            os.path.join(f"{path}/model{step:06d}.pt"),
         )
-        th.save(opt.state_dict(), os.path.join(logger.get_dir(), f"opt{step:06d}.pt"))
+        th.save(opt.state_dict(), os.path.join(f"{path}/opt{step:06d}.pt"))
 
 
 def compute_top_k(logits, labels, k, reduction="mean"):
@@ -244,8 +241,9 @@ def split_microbatches(microbatch, *args):
 
 def create_argparser():
     defaults = dict(
-        dataset_name="",
-        val_data_dir="",
+        dataset_path="src/tabular_synthesis/data/real_datasets/adult/adult.data",
+        config_path="src/tabular_synthesis/data/config/adult.json",
+        output_path="output",
         noised=True,
         iterations=150000,
         lr=3e-4,
@@ -267,3 +265,4 @@ def create_argparser():
 
 if __name__ == "__main__":
     main()
+    
