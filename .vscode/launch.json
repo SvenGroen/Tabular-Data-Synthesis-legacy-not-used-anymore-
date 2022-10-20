@@ -12,8 +12,12 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--dataset_name",
-                "adult",
+                "--dataset_path",
+                "src/tabular_synthesis/data/real_datasets/adult/adult.data",
+                "--config_path",
+                "src/tabular_synthesis/data/config/adult.json",
+                "--output_path",
+                "output",
                 "--learn_sigma",
                 "True",
                 "--iterations",
@@ -28,8 +32,6 @@
                 "10000",
                 "--weight_decay",
                 "0.05",
-                // "--image_size",
-                // "64",
                 "--classifier_attention_resolutions",
                 "32,16,8",
                 "--classifier_depth",
@@ -42,10 +44,10 @@
                 "True",
                 "--classifier_use_scale_shift_norm",
                 "True",
-                // "val_data_dir",
-                // "test",
-                // "eval_interval",
-                // "1"
+                "--log_interval",
+                "2",
+                "--eval_interval",
+                "3"
             ]
         },
         {
