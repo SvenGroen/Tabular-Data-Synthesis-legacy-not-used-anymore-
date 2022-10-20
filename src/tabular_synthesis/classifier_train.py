@@ -4,6 +4,15 @@ Train a noised image classifier on ImageNet.
 
 import argparse
 import os
+print("current directory and files:")
+print(os.getcwd())
+print("files:")
+print(os.listdir(os.getcwd()))
+print("Listing Envs...")
+os.system("conda info --envs")
+print("Done")
+os.system(f"pip show tabular-synthesis")
+print("starting the script")
 
 import blobfile as bf
 import torch as th
@@ -27,8 +36,6 @@ from tabular_synthesis.synthesizer.loading.util import get_dataset
 from tabular_synthesis.synthesizer.loading.tabular_loader import TabularLoader, TabularLoaderIterator
 
 
-
-
 def main():
     args = create_argparser().parse_args()
 
@@ -38,7 +45,7 @@ def main():
 
     logger.log("creating data loader...")
 
-    data, data_config = get_dataset(args.dataset_name)
+    data, data_config = get_dataset(args.dataset_name,azure=False)
     tabular_loader = TabularLoaderIterator(
         data=data,
         patch_size=1,

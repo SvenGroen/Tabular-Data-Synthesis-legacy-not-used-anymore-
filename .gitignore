@@ -18,6 +18,10 @@ src/tabular_synthesis/checkpoints
 #pycharm stuff
 **/.idea
 
+# azure stuff
+**/.amlignore*
+**/*.amltemp*
+*.amltmp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

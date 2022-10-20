@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
 SUPPORTED = ["adult"]
-DATA_PATH = Path.cwd() / "src/tabular_synthesis/data"
+DATA_PATH = Path.cwd() / "tabular_synthesis/data"
 CONFIG_PATH = DATA_PATH / "config"
 
 def load_json(path):
@@ -29,8 +29,7 @@ def get_dataset(name:str, azure=False):
         if name == "adult":
             features=["age","workclass","fnlwgt", "education", "education-num",	"marital-status", "occupation", "relationship", 
                         "race", "gender","capital-gain", "capital-loss", "hours-per-week","native-country", "income"]
-            df=pd.read_csv(DATA_PATH/config["path"], names=features, sep=r'\s*,\s*', 
-                             engine='python', na_values="?")
+
             if azure:
                 from azureml.core.dataset import Dataset
                 import azureml.core
@@ -38,12 +37,15 @@ def get_dataset(name:str, azure=False):
                 import tempfile
                 import os
                 # Load the workspace from the saved config file
-                ws = Workspace.from_config()
+                ws = Workspace.from_config(path="./")
                 dataset = Dataset.get_by_name(ws,"adult_train")
 
                 path = tempfile.mkdtemp()
                 with dataset.mount(path):
                     df = pd.read_csv(path+"/"+os.listdir(path)[0], na_values="?")
+            else:
+                df=pd.read_csv(DATA_PATH/config["path"], names=features, sep=r'\s*,\s*', 
+                    engine='python', na_values="?")
             return df, config
 
         return pd.read_csv(DATA_PATH/config["path"]), config
