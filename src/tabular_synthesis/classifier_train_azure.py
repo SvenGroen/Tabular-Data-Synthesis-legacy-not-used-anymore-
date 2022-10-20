@@ -4,16 +4,6 @@ Train a noised image classifier on ImageNet.
 
 import argparse
 import os
-print("current directory and files:")
-print(os.getcwd())
-print("files:")
-print(os.listdir(os.getcwd()))
-print("Listing Envs...")
-os.system("conda info --envs")
-print("Done")
-os.system(f"pip show tabular-synthesis")
-print("starting the script")
-
 import blobfile as bf
 import torch as th
 import torch.distributed as dist
@@ -33,7 +23,7 @@ from tabular_synthesis.synthesizer.model.guided_diffusion.script_util import (
 )
 from tabular_synthesis.synthesizer.model.guided_diffusion.train_util import parse_resume_step_from_filename, log_loss_dict
 from tabular_synthesis.synthesizer.loading.util import get_dataset
-from tabular_synthesis.synthesizer.loading.tabular_loader import TabularLoader, TabularLoaderIterator
+from tabular_synthesis.synthesizer.loading.tabular_loader import TabularLoaderIterator, TabularLoader
 
 
 def main():
@@ -46,17 +36,21 @@ def main():
     logger.log("creating data loader...")
 
     data, data_config = get_dataset(args.dataset_name,azure=False)
-    tabular_loader = TabularLoaderIterator(
+    tabular_loader = TabularLoader(
         data=data,
+        test_ratio=0.2,
         patch_size=1,
-        num_iterations=args.iterations,
         batch_size=args.batch_size,
         **data_config["dataset_config"])
+
+    train_loader = TabularLoaderIterator(tabular_loader, return_test=True, num_iterations=args.iterations)
+    val_loader = TabularLoaderIterator(tabular_loader, return_test=True, num_iterations=args.iterations)
+
 
     # setting arguments for the classifier using the tabular_loader
     args.image_size = tabular_loader.side
     args.in_channels = tabular_loader.patch_size 
-    args.out_channels = tabular_loader.patch_size * tabular_loader.cond_generator.n_opt
+    args.out_channels = tabular_loader.patch_size * tabular_loader.cond_generator_train.n_opt
 
     logger.log("creating model and diffusion...")
     model, diffusion = create_classifier_and_diffusion(
@@ -88,14 +82,16 @@ def main():
         model=model, use_fp16=args.classifier_use_fp16, initial_lg_loss_scale=16.0
     )
 
-    # model = DDP(
-    #     model,
-    #     device_ids=[dist_util.dev()],
-    #     output_device=dist_util.dev(),
-    #     broadcast_buffers=False,
-    #     bucket_cap_mb=128,
-    #     find_unused_parameters=False,
-    # )
+    model = DDP(
+        model,
+        # device_ids=[dist_util.dev()],
+        device_ids=None,
+        # output_device=dist_util.dev(),
+        output_device=None,
+        broadcast_buffers=False,
+        bucket_cap_mb=128,
+        find_unused_parameters=False,
+    )
 
 
 
@@ -107,14 +103,9 @@ def main():
     #     random_crop=True,
     # )
 
-
+    args.val_data_dir = "test"
     if args.val_data_dir:
-        val_data = load_data(
-            data_dir=args.val_data_dir,
-            batch_size=args.batch_size,
-            image_size=args.image_size,
-            class_cond=True,
-        )
+        val_data = val_loader
     else:
         val_data = None
 
@@ -195,7 +186,7 @@ def main():
         )
         if args.anneal_lr:
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
-        forward_backward_log(data_loader=tabular_loader)
+        forward_backward_log(data_loader=train_loader)
         mp_trainer.optimize(opt)
         if val_data is not None and not step % args.eval_interval:
             with th.no_grad():

@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from torch.nn import functional as F
+from sklearn.model_selection import train_test_split
 import torch
 
 from .transform.transformer import DataTransformer, ImageTransformer
@@ -28,9 +29,9 @@ class TabularLoader(object):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.patch_size = patch_size
         self.batch_size = batch_size
+        assert test_ratio <= 1.0 and test_ratio >= 0, "Test ratio must be smaller than 1 (100%) and bigger than 0 (0%)"
         self.test_ratio = test_ratio
         self.noise_dim = noise_dim
-
         self.categorical_columns = categorical_columns or []
         self.log_columns = log_columns or []
         self.mixed_columns = mixed_columns or {}
@@ -56,29 +57,31 @@ class TabularLoader(object):
         print("Fitting data transformer...")
         self.data_transformer.fit()
         self.transformed_data = self.data_transformer.transform(self.data_prep.df.values)
+        # train test split:
+
+        self.data_train, self.data_test = train_test_split(self.transformed_data, test_size=self.test_ratio)
         print("Setting up Sampler, Cond and ImageTransformer...")
-        self.sampler = Sampler(data=self.transformed_data, output_info=self.data_transformer.output_info)
-        self.cond_generator = Cond(data=self.transformed_data, output_info=self.data_transformer.output_info)
-        self.cond_vector = self.cond_generator.sample_train(self.batch_size)
+        self.sampler_train = Sampler(data=self.data_train, output_info=self.data_transformer.output_info)
+        self.cond_generator_train = Cond(data=self.data_train, output_info=self.data_transformer.output_info)
+        self.sampler_test = Sampler(data=self.data_test, output_info=self.data_transformer.output_info)
+        self.cond_generator_test = Cond(data=self.data_test, output_info=self.data_transformer.output_info)
+        self.cond_vector = None
         self.side = self.determine_image_side()
         self.Image_transformer = ImageTransformer(side=self.side)
         print("Tabular Loader initialized successfully.")
 
-    def transform_to_image(self, data):
-        pass
-
-    def calculate_new_cond_vector(self):
-        self.cond_vector = self.cond_generator.sample_train(self.batch_size)
-        return self.cond_vector
-
-    def get_batch(self, image_shape=False):
+    def get_batch(self, image_shape=False, return_test=False):
         patch_list = []
+        cond_generator = self.cond_generator_test if return_test else self.cond_generator_train
+        sampler = self.sampler_test if return_test else self.sampler_train
+
         for i in range(self.patch_size):
-            c, mask, col, opt = self.calculate_new_cond_vector()
+            self.cond_vector = cond_generator.sample_train(self.batch_size)
+            c, mask, col, opt = self.cond_vector
             perm = np.arange(self.batch_size)
             np.random.shuffle(perm)
             c = torch.from_numpy(c).to(self.device)
-            data_batch = self.sampler.sample(n=self.batch_size, col=col[perm], opt=opt[perm])
+            data_batch = sampler.sample(n=self.batch_size, col=col[perm], opt=opt[perm])
             # data_batch = data_batch.astype(np.float32)
             data_batch = torch.from_numpy(data_batch).to(self.device)
             data_batch = torch.cat([data_batch, c[perm]], dim=1)
@@ -98,7 +101,7 @@ class TabularLoader(object):
 
     def determine_image_side(self):
         sides = [64, 128, 256]
-        col_size = self.data_transformer.output_dim + self.cond_generator.n_opt
+        col_size = self.data_transformer.output_dim + self.cond_generator_train.n_opt # cond_generator_train.n_col = cond_generator_test.n_col
         side = None
         for i in sides:
             if i * i >= col_size:
@@ -147,16 +150,17 @@ class TabularLoader(object):
 
 
 class TabularLoaderIterator(TabularLoader):
-    def __init__(self, num_iterations=None, *args, **kwargs, ):
-        super(TabularLoaderIterator, self).__init__(*args, **kwargs)
-        self.num_iterations = num_iterations or 1000
+    def __init__(self, tabular_loader: TabularLoader, return_test = False, num_iterations=1000, *args, **kwargs, ):
+        self.tabular_loader = tabular_loader
+        self.num_iterations = num_iterations 
+        self.return_test = return_test
 
     def __next__(self):
         if self.num_iterations == 0:
             raise StopIteration
         self.num_iterations -= 1
         # batch, c, col, opt = self.get_batch(image_shape=True)
-        batch, c = self.get_batch(image_shape=True)
+        batch, c = self.tabular_loader.get_batch(image_shape=True, return_test=self.return_test)
         # transform batch tensor to double tensor
         batch = batch.type(torch.LongTensor)
         out = dict()

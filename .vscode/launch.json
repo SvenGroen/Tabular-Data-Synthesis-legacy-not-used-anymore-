@@ -41,7 +41,11 @@
                 "--classifier_resblock_updown",
                 "True",
                 "--classifier_use_scale_shift_norm",
-                "True"
+                "True",
+                // "val_data_dir",
+                // "test",
+                // "eval_interval",
+                // "1"
             ]
         },
         {

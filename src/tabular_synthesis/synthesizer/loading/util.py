@@ -4,7 +4,8 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
 SUPPORTED = ["adult"]
-DATA_PATH = Path.cwd() / "tabular_synthesis/data"
+src = "src/" if Path.cwd().parts[-1] != "src" else ""
+DATA_PATH = Path.cwd() / (src+"tabular_synthesis/data")
 CONFIG_PATH = DATA_PATH / "config"
 
 def load_json(path):
