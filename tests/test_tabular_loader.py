@@ -35,6 +35,10 @@ class TestTabularLoader(unittest.TestCase):
     def test_init(self):
         data = pd.read_csv(data_location, sep=",")
         tabular_loader = TabularLoader(data=data, **init_arguments)
+        for k, v in vars(tabular_loader).items():
+            if v is None:
+                print(k)
+            assert v is not None
         assert all(k is not None for k in (vars(tabular_loader).values()))
 
     def test_get_batch(self):
@@ -44,7 +48,7 @@ class TestTabularLoader(unittest.TestCase):
         assert isinstance(batch, torch.Tensor)
         assert batch.shape == (tabular_loader.batch_size,
                                tabular_loader.data_transformer.output_dim +
-                               tabular_loader.cond_generator.n_opt)
+                               tabular_loader.cond_generator_train.n_opt)
         assert all(k is not None for k in (c, batch))
         batch, c = tabular_loader.get_batch(image_shape=True)
         assert batch.shape == (tabular_loader.batch_size, 1, tabular_loader.side, tabular_loader.side)

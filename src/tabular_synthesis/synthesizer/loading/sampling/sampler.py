@@ -4,6 +4,7 @@ import numpy as np
 class Sampler(object):
     def __init__(self, data, output_info):
         super(Sampler, self).__init__()
+        np.random.seed(42)
         self.data = data
         self.model = []
         self.n = len(data)

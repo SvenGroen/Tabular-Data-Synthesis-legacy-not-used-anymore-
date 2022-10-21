@@ -65,7 +65,7 @@ class TabularLoader(object):
         self.cond_generator_train = Cond(data=self.data_train, output_info=self.data_transformer.output_info)
         self.sampler_test = Sampler(data=self.data_test, output_info=self.data_transformer.output_info)
         self.cond_generator_test = Cond(data=self.data_test, output_info=self.data_transformer.output_info)
-        self.cond_vector = None
+        self.cond_vector = (None, None, None, None)
         self.side = self.determine_image_side()
         self.Image_transformer = ImageTransformer(side=self.side)
         print("Tabular Loader initialized successfully.")

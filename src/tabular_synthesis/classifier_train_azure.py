@@ -46,6 +46,8 @@ def main():
         batch_size=args.batch_size,
         **data_config["dataset_config"])
 
+
+
     train_loader = TabularLoaderIterator(tabular_loader, return_test=True, num_iterations=args.iterations)
     val_loader = TabularLoaderIterator(tabular_loader, return_test=True, num_iterations=args.iterations)
 

@@ -24,7 +24,7 @@ def maximum_interval(output_info):
 
 class Cond:
     def __init__(self, data, output_info):
-
+        np.random.seed(42)
         self.model = []
         st = 0
         counter = 0

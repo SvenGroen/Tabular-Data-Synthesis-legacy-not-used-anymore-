@@ -8,6 +8,7 @@ class DataTransformer:
 
     def __init__(self, train_data=pd.DataFrame, categorical_list=[], mixed_dict={}, general_list=[],
                  non_categorical_list=[], n_clusters=10, eps=0.005):
+        np.random.seed(42)
         self.meta = None
         self.n_clusters = n_clusters
         self.eps = eps
@@ -18,6 +19,7 @@ class DataTransformer:
         self.non_categorical_columns = non_categorical_list
         self.description_long = ""
         self.description_list = []
+        
 
     def get_metadata(self):
 
