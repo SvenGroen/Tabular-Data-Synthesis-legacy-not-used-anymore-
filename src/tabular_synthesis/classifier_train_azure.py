@@ -6,6 +6,7 @@ import argparse
 import os
 import blobfile as bf
 import joblib
+import tempfile
 import torch as th
 import torch.distributed as dist
 import torch.nn.functional as F
@@ -35,10 +36,9 @@ def main():
     run = Run.get_context()
 
     print_CUDA_information()
-
-    print("creating data loader...")
-
+  
     data, data_config = get_dataset(args.dataset_path, args.config_path)
+
     tabular_loader = TabularLoader(
         data=data,
         test_ratio=0.2,

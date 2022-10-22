@@ -25,9 +25,9 @@ def get_dataset(path:str, config_path:str):
         if config["dataset_name"] == "adult" :
             features=["age","workclass","fnlwgt", "education", "education-num",	"marital-status", "occupation", "relationship", 
                         "race", "gender","capital-gain", "capital-loss", "hours-per-week","native-country", "income"]
-
             df=pd.read_csv(path, names=features, sep=r'\s*,\s*', 
                 engine='python', na_values="?")
+
             return df, config
 
         return pd.read_csv(path), config
