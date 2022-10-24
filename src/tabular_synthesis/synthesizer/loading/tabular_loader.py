@@ -70,7 +70,8 @@ class TabularLoader(object):
         self.Image_transformer = ImageTransformer(side=self.side)
         print("Tabular Loader initialized successfully.")
 
-    def get_batch(self, image_shape=False, return_test=False):
+
+    def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False):
         patch_list = []
         cond_generator = self.cond_generator_test if return_test else self.cond_generator_train
         sampler = self.sampler_test if return_test else self.sampler_train
@@ -79,7 +80,8 @@ class TabularLoader(object):
             self.cond_vector = cond_generator.sample_train(self.batch_size)
             c, mask, col, opt = self.cond_vector
             perm = np.arange(self.batch_size)
-            np.random.shuffle(perm)
+            if shuffle_batch:
+                np.random.shuffle(perm)
             c = torch.from_numpy(c).to(self.device)
             data_batch = sampler.sample(n=self.batch_size, col=col[perm], opt=opt[perm])
             # data_batch = data_batch.astype(np.float32)
@@ -87,7 +89,8 @@ class TabularLoader(object):
             data_batch = torch.cat([data_batch, c[perm]], dim=1)
             if image_shape:
                 data_batch = self.Image_transformer.transform(data_batch)
-            c = torch.unsqueeze(c[perm], dim=1)
+            c = c[perm]
+            c = torch.unsqueeze(c, dim=1).to(self.device)
             patch_list.append((data_batch, c, col[perm], opt[perm]))
 
         data_batch, c, col, opt = zip(*patch_list)

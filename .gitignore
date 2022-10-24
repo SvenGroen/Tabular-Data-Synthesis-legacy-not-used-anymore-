@@ -22,6 +22,7 @@ src/tabular_synthesis/checkpoints
 **/.amlignore*
 **/*.amltemp*
 *.amltmp
+*.ipynb_aml_checkpoints/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

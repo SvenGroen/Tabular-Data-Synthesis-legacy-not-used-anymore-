@@ -38,6 +38,7 @@ def main():
     print_CUDA_information()
   
     data, data_config = get_dataset(args.dataset_path, args.config_path)
+    data = data.sample(n=400, random_state=42)
 
     tabular_loader = TabularLoader(
         data=data,
@@ -87,6 +88,7 @@ def main():
         model=model, use_fp16=args.classifier_use_fp16, initial_lg_loss_scale=16.0
     )
 
+    print("Cuda_Usage before model creation: ", th.cuda.mem_get_info())
     model = DDP(
         model,
         device_ids= [dist_util.dev()] if th.cuda.is_available() else None,
@@ -95,6 +97,7 @@ def main():
         bucket_cap_mb=128,
         find_unused_parameters=False,
     )
+    print("Cuda_Usage after model creation: ", th.cuda.mem_get_info())
 
 
     print(f"creating optimizer...")
@@ -111,10 +114,11 @@ def main():
     print("training classifier model...")
 
     def forward_backward_log(data_loader, prefix="train", log=True):
+        # print("Cuda_Usage before batch loaded: ", th.cuda.mem_get_info())
         batch, extra = next(data_loader)
         labels = extra["y"].to(dist_util.dev())
-
         batch = batch.to(dist_util.dev())
+        # print("Cuda_Usage after batch loaded: ", th.cuda.mem_get_info())
 
         # Noisy images
         if args.noised:
@@ -126,27 +130,30 @@ def main():
         for i, (sub_batch, sub_labels, sub_t) in enumerate(
             split_microbatches(args.microbatch, batch, labels, t)
         ):
+            print(model.device)
             logits = model(sub_batch, timesteps=sub_t)
-            if batch.shape[1] != 1:
-                logits = logits.view(logits.shape[0], batch.shape[1], -1)
-                tmp_loss= []
-                for i in range(batch.shape[1]):
-                    tmp_loss.append(
-                        F.cross_entropy(
-                            logits[:, i, :],
-                            sub_labels[:, i, :],
-                            reduction="none",
-                        )
-                    )
-                loss = th.stack(tmp_loss).mean(0)
-                sub_labels = sub_labels.view(sub_labels.shape[0],-1).argmax(-1)
-                logits = logits.mean(1)
-                _test = F.cross_entropy(logits, sub_labels, reduction="none").detach()
+            logits2 = F.softmax(logits)
+            # if batch.shape[1] != 1:
+            #     logits = logits.view(logits.shape[0], batch.shape[1], -1)
+            #     tmp_loss= []
+            #     for i in range(batch.shape[1]):
+            #         tmp_loss.append(
+            #             F.cross_entropy(
+            #                 logits[:, i, :],
+            #                 sub_labels[:, i, :],
+            #                 reduction="none",
+            #             )
+            #         )
+            #     loss = th.stack(tmp_loss).mean(0)
+            #     sub_labels = sub_labels.view(sub_labels.shape[0],-1).argmax(-1)
+            #     logits = logits.mean(1)
+            #     _test = F.cross_entropy(logits, sub_labels, reduction="none").detach()
                 
-            else:
-                sub_labels=sub_labels.squeeze(1).argmax(-1)
-                loss = F.cross_entropy(logits, sub_labels, reduction="none")
-                _test=loss.detach()
+            # else:
+            sub_labels=sub_labels.squeeze(1).argmax(-1)
+            loss =  F.cross_entropy(logits, sub_labels, reduction="none")
+            loss_logits =  F.cross_entropy(logits2, sub_labels, reduction="none")
+            _test=loss.detach()
             
             if log:
                 run.log(f"{prefix}_loss", loss.detach().mean().item())
@@ -154,7 +161,13 @@ def main():
                     logits, sub_labels, k=1, reduction="none").mean().item())
                 run.log(f"{prefix}_acc@5", compute_top_k(
                     logits, sub_labels, k=5, reduction="none").mean().item())
-                run.log(f"{prefix}_loss_diff", (loss.detach() - _test).mean().item())
+                # run.log(f"{prefix}_loss_diff", (loss.detach() - _test).mean().item())
+
+                run.log(f"{prefix}_loss_softmax", loss_logits.detach().mean().item())
+                run.log(f"{prefix}_acc@1_softmax", compute_top_k(
+                    logits2, sub_labels, k=1, reduction="none").mean().item())
+                run.log(f"{prefix}_acc@5_softmax", compute_top_k(
+                    logits2, sub_labels, k=5, reduction="none").mean().item())
 
             loss = loss.mean()
             
@@ -162,6 +175,7 @@ def main():
                 if i == 0:
                     mp_trainer.zero_grad()
                 mp_trainer.backward(loss * len(sub_batch) / len(batch))
+                run.log("Cuda_Usage after backward", th.cuda.mem_get_info())
 
     for step in range(args.iterations - resume_step):
         if args.anneal_lr:
@@ -170,6 +184,7 @@ def main():
         if log:
             run.log("step", step + resume_step)
             run.log("samples",(step + resume_step + 1) * args.batch_size * dist.get_world_size())
+            run.log("Lr", opt.param_groups[0]["lr"])
         forward_backward_log(data_loader=train_loader, log=log)
         mp_trainer.optimize(opt)
         if val_loader is not None and not step % args.eval_interval:
