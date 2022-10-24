@@ -170,6 +170,77 @@ class TrainLoop:
         if (self.step - 1) % self.save_interval != 0:
             self.save()
 
+    def run_azure_loop(self, run, output_dir):
+        while (
+            not self.lr_anneal_steps
+            or self.step + self.resume_step < self.lr_anneal_steps
+        ):
+            try:
+                batch, cond = next(self.data)
+            except StopIteration:
+                print("Stopping training")
+                self.save_azure(output_dir=output_dir)
+                break
+            cond["y"] = cond["y"].squeeze(1).argmax(-1) # <--- evtl. später löschen
+            self.run_azure_step(batch, cond)
+            if self.step % self.log_interval == 0:
+                metrics = logger.dumpkvs()
+                for k, v in metrics.items():
+                    run.log(k, v)
+            if self.step % self.save_interval == 0:
+                self.save_azure(output_dir=output_dir)
+                # Run for a finite amount of time in integration tests.
+                if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
+                    return
+            self.step += 1
+        # Save the last checkpoint if it wasn't already saved.
+        if (self.step - 1) % self.save_interval != 0:
+            self.save_azure(output_dir=output_dir)
+
+    def run_azure_step(self, batch, cond):
+        self.forward_backward_azure(batch, cond)
+        took_step = self.mp_trainer.optimize(self.opt)
+        if took_step:
+            self._update_ema()
+        self._anneal_lr()
+        self.log_step()
+
+    def forward_backward_azure(self, batch, cond):
+        self.mp_trainer.zero_grad()
+        for i in range(0, batch.shape[0], self.microbatch):
+            micro = batch[i : i + self.microbatch].to(dist_util.dev())
+            micro_cond = {
+                k: v[i : i + self.microbatch].to(dist_util.dev())
+                for k, v in cond.items()
+            }
+            last_batch = (i + self.microbatch) >= batch.shape[0]
+            t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
+
+            compute_losses = functools.partial(
+                self.diffusion.training_losses,
+                self.ddp_model,
+                micro,
+                t,
+                model_kwargs=micro_cond,
+            )
+
+            if last_batch or not self.use_ddp:
+                losses = compute_losses()
+            else:
+                with self.ddp_model.no_sync():
+                    losses = compute_losses()
+
+            if isinstance(self.schedule_sampler, LossAwareSampler):
+                self.schedule_sampler.update_with_local_losses(
+                    t, losses["loss"].detach()
+                )
+
+            loss = (losses["loss"] * weights).mean()
+            log_loss_dict(
+                self.diffusion, t, {k: v * weights for k, v in losses.items()}
+            )
+            self.mp_trainer.backward(loss)
+
     def run_step(self, batch, cond):
         self.forward_backward(batch, cond)
         took_step = self.mp_trainer.optimize(self.opt)
@@ -255,6 +326,32 @@ class TrainLoop:
 
         dist.barrier()
 
+    def save_azure(self, output_dir=""):
+        "check if output_dir exists, if not create it"
+        os.makedirs(output_dir, exist_ok=True)
+        def save_checkpoint(rate, params):
+            state_dict = self.mp_trainer.master_params_to_state_dict(params)
+            if dist.get_rank() == 0:
+                print(f"saving model {rate}...")
+                if not rate:
+                    filename = output_dir+f"model{(self.step+self.resume_step):06d}.pt"
+                else:
+                    filename = output_dir+f"ema_{rate}_{(self.step+self.resume_step):06d}.pt"
+                with bf.BlobFile(bf.join(output_dir, filename), "wb") as f:
+                    th.save(state_dict, f)
+
+        save_checkpoint(0, self.mp_trainer.master_params)
+        for rate, params in zip(self.ema_rate, self.ema_params):
+            save_checkpoint(rate, params)
+
+        if dist.get_rank() == 0:
+            with bf.BlobFile(
+                bf.join(output_dir, f"opt{(self.step+self.resume_step):06d}.pt"),
+                "wb",
+            ) as f:
+                th.save(self.opt.state_dict(), f)
+
+        dist.barrier()
 
 def parse_resume_step_from_filename(filename):
     """

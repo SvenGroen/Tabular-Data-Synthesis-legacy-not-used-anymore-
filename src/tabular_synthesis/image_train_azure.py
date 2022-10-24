@@ -3,8 +3,9 @@ Train a diffusion model on images.
 """
 
 import argparse
+from azureml.core import Run
+import torch
 from tabular_synthesis.synthesizer.loading.util import get_dataset
-
 from tabular_synthesis.synthesizer.model.guided_diffusion import dist_util, logger
 from tabular_synthesis.synthesizer.model.guided_diffusion.image_datasets import load_data
 from tabular_synthesis.synthesizer.model.guided_diffusion.resample import create_named_schedule_sampler
@@ -21,11 +22,14 @@ def main():
     args = create_argparser().parse_args()
 
     dist_util.setup_dist()
-    logger.configure()
+    run = Run.get_context()
 
-    logger.log("creating data loader...")
+    print_CUDA_information()
+
 
     data, data_config = get_dataset(args.dataset_path, args.config_path)
+    # data = data.sample(n=400, random_state=42)
+
     tabular_loader = TabularLoader(
         data=data,
         test_ratio=0.2,
@@ -37,7 +41,7 @@ def main():
     val_loader = TabularLoaderIterator(tabular_loader, return_test=True, num_iterations=args.iterations)
 
 
-        # setting arguments for the classifier using the tabular_loader
+    # setting arguments for the classifier using the tabular_loader
     args.image_size = tabular_loader.side
     args.in_channels = tabular_loader.patch_size 
     args.out_channels = tabular_loader.patch_size * tabular_loader.cond_generator_train.n_opt
@@ -68,13 +72,14 @@ def main():
         schedule_sampler=schedule_sampler,
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
-    ).run_loop()
+    ).run_azure_loop(run=run, output_dir=args.output_path)
 
 
 def create_argparser():
     defaults = dict(
         dataset_path="",
         config_path="",
+        output_path="",
         schedule_sampler="uniform",
         iterations=100,
         lr=1e-4,
@@ -94,6 +99,18 @@ def create_argparser():
     add_dict_to_argparser(parser, defaults)
     return parser
 
+def print_CUDA_information():
+    print("CUDA information:")
+    if torch.cuda.is_available():
+        print(f"CUDA available: {th.cuda.is_available()}",
+        f"CUDA version: {th.version.cuda}",
+        f"Number of GPUs: {th.cuda.device_count()}",
+        f"Current GPU: {th.cuda.current_device()}",
+        f"Device name: {th.cuda.get_device_name(th.cuda.current_device())}",
+        f"Device capability: {th.cuda.get_device_capability(th.cuda.current_device())}",
+    )
+    else:
+        print("No CUDA available")
 
 if __name__ == "__main__":
     main()

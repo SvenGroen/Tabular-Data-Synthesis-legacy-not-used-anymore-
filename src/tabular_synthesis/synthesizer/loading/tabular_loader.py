@@ -89,6 +89,8 @@ class TabularLoader(object):
             data_batch = torch.cat([data_batch, c[perm]], dim=1)
             if image_shape:
                 data_batch = self.Image_transformer.transform(data_batch)
+            # else:
+            #     data_batch = data_batch.unsqueeze(1).unsqueeze(1)
             c = c[perm]
             c = torch.unsqueeze(c, dim=1).to(self.device)
             patch_list.append((data_batch, c, col[perm], opt[perm]))
@@ -103,7 +105,7 @@ class TabularLoader(object):
         return data_batch, c
 
     def determine_image_side(self):
-        sides = [64, 128, 256]
+        sides = [32, 64, 128, 256]
         col_size = self.data_transformer.output_dim + self.cond_generator_train.n_opt # cond_generator_train.n_col = cond_generator_test.n_col
         side = None
         for i in sides:

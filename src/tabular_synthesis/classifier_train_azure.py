@@ -3,6 +3,7 @@ Train a noised image classifier on ImageNet.
 """
 
 import argparse
+from email.mime import image
 import os
 import blobfile as bf
 import joblib
@@ -12,7 +13,7 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
-from azureml.core import Run, Dataset
+from azureml.core import Run
 
 from tabular_synthesis.synthesizer.model.guided_diffusion import dist_util
 from tabular_synthesis.synthesizer.model.guided_diffusion.fp16_util import MixedPrecisionTrainer
@@ -49,12 +50,16 @@ def main():
 
 
 
-    train_loader = TabularLoaderIterator(tabular_loader, return_test=True, num_iterations=args.iterations)
+    train_loader = TabularLoaderIterator(tabular_loader, return_test=False, num_iterations=args.iterations)
     val_loader = TabularLoaderIterator(tabular_loader, return_test=True, num_iterations=args.iterations)
 
 
     # setting arguments for the classifier using the tabular_loader
     args.image_size = tabular_loader.side
+    print(args.image_size)
+    # args.image_size = -1
+    print(tabular_loader.side)
+    # args.classifier_resblock_updown = False
     args.in_channels = tabular_loader.patch_size 
     args.out_channels = tabular_loader.patch_size * tabular_loader.cond_generator_train.n_opt
 
@@ -88,7 +93,7 @@ def main():
         model=model, use_fp16=args.classifier_use_fp16, initial_lg_loss_scale=16.0
     )
 
-    print("Cuda_Usage before model creation: ", th.cuda.mem_get_info())
+    # print("Cuda_Usage before model creation: ", th.cuda.mem_get_info())
     model = DDP(
         model,
         device_ids= [dist_util.dev()] if th.cuda.is_available() else None,
@@ -97,7 +102,7 @@ def main():
         bucket_cap_mb=128,
         find_unused_parameters=False,
     )
-    print("Cuda_Usage after model creation: ", th.cuda.mem_get_info())
+    # print("Cuda_Usage after model creation: ", th.cuda.mem_get_info())
 
 
     print(f"creating optimizer...")
@@ -175,7 +180,7 @@ def main():
                 if i == 0:
                     mp_trainer.zero_grad()
                 mp_trainer.backward(loss * len(sub_batch) / len(batch))
-                run.log("Cuda_Usage after backward", th.cuda.mem_get_info())
+                # run.log("Cuda_Usage after backward", th.cuda.mem_get_info())
 
     for step in range(args.iterations - resume_step):
         if args.anneal_lr:

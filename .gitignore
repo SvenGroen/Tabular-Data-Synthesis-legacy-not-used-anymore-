@@ -15,6 +15,9 @@ src/tabular_synthesis/checkpoints
 # any personal notes
 /notes
 
+# any model checkpoints
+*.pt
+
 #pycharm stuff
 **/.idea
 
