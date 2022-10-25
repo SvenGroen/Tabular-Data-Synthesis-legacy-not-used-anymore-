@@ -4,7 +4,7 @@ Train a diffusion model on images.
 
 import argparse
 from azureml.core import Run
-import torch
+import torch as th
 from tabular_synthesis.synthesizer.loading.util import get_dataset
 from tabular_synthesis.synthesizer.model.guided_diffusion import dist_util, logger
 from tabular_synthesis.synthesizer.model.guided_diffusion.image_datasets import load_data
@@ -29,6 +29,10 @@ def main():
 
     data, data_config = get_dataset(args.dataset_path, args.config_path)
     # data = data.sample(n=400, random_state=42)
+
+    if args.iterations == -1:
+        args.iterations = int(len(data) / args.batch_size)
+    print("iterating for ", args.iterations, " steps...")
 
     tabular_loader = TabularLoader(
         data=data,
@@ -101,7 +105,7 @@ def create_argparser():
 
 def print_CUDA_information():
     print("CUDA information:")
-    if torch.cuda.is_available():
+    if th.cuda.is_available():
         print(f"CUDA available: {th.cuda.is_available()}",
         f"CUDA version: {th.version.cuda}",
         f"Number of GPUs: {th.cuda.device_count()}",
