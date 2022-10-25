@@ -47,6 +47,7 @@ def main():
 
     # setting arguments for the classifier using the tabular_loader
     args.image_size = tabular_loader.side
+    args.num_classes = tabular_loader.cond_generator_train.n_opt
     args.in_channels = tabular_loader.patch_size 
     args.out_channels = tabular_loader.patch_size * tabular_loader.cond_generator_train.n_opt
 
@@ -77,6 +78,7 @@ def main():
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
     ).run_azure_loop(run=run, output_dir=args.output_path)
+
 
 
 def create_argparser():

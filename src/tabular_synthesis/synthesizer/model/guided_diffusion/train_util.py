@@ -197,6 +197,8 @@ class TrainLoop:
         if (self.step - 1) % self.save_interval != 0:
             self.save_azure(output_dir=output_dir)
 
+
+
     def run_azure_step(self, batch, cond):
         self.forward_backward_azure(batch, cond)
         took_step = self.mp_trainer.optimize(self.opt)
@@ -334,9 +336,9 @@ class TrainLoop:
             if dist.get_rank() == 0:
                 print(f"saving model {rate}...")
                 if not rate:
-                    filename = output_dir+f"model{(self.step+self.resume_step):06d}.pt"
+                    filename = f"model{(self.step+self.resume_step):06d}.pt"
                 else:
-                    filename = output_dir+f"ema_{rate}_{(self.step+self.resume_step):06d}.pt"
+                    filename = f"ema_{rate}_{(self.step+self.resume_step):06d}.pt"
                 with bf.BlobFile(bf.join(output_dir, filename), "wb") as f:
                     th.save(state_dict, f)
 
@@ -352,6 +354,7 @@ class TrainLoop:
                 th.save(self.opt.state_dict(), f)
 
         dist.barrier()
+
 
 def parse_resume_step_from_filename(filename):
     """

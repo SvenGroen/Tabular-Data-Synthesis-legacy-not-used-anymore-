@@ -63,6 +63,7 @@ def model_and_diffusion_defaults():
         use_fp16=False,
         use_new_attention_order=False,
         in_channels=3,
+        num_classes=NUM_CLASSES,
     )
     res.update(diffusion_defaults())
     return res
@@ -99,6 +100,7 @@ def create_model_and_diffusion(
     use_fp16,
     use_new_attention_order,
     in_channels,
+    num_classes,
 ):
     model = create_model(
         image_size=image_size,
@@ -118,6 +120,7 @@ def create_model_and_diffusion(
         resblock_updown=resblock_updown,
         use_fp16=use_fp16,
         use_new_attention_order=use_new_attention_order,
+        num_classes=num_classes
     )
     diffusion = create_gaussian_diffusion(
         steps=diffusion_steps,
@@ -150,6 +153,7 @@ def create_model(
     resblock_updown=False,
     use_fp16=False,
     use_new_attention_order=False,
+    num_classes=NUM_CLASSES,
 ):
     if channel_mult == "":
         if image_size == 512:
@@ -178,7 +182,7 @@ def create_model(
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
         channel_mult=channel_mult,
-        num_classes=(NUM_CLASSES if class_cond else None),
+        num_classes=(num_classes if class_cond else None),
         use_checkpoint=use_checkpoint,
         use_fp16=use_fp16,
         num_heads=num_heads,

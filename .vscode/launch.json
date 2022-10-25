@@ -60,7 +60,7 @@
                 "--config_path",
                 "src/tabular_synthesis/data/config/adult.json",
                 "--output_path",
-                "src/tabular_synthesis/output",
+                "src/tabular_synthesis/output/",
                 "--learn_sigma",
                 "True",
                 "--iterations",
@@ -84,6 +84,43 @@
             ]
         },
         {
+            "name": "sample_azure",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--model_path", 
+                "src/tabular_synthesis/output/model000001.pt",
+                "--dataset_path",
+                "src/tabular_synthesis/data/real_datasets/adult/adult.data",
+                "--config_path",
+                "src/tabular_synthesis/data/config/adult.json",
+                "--output_path",
+                "src/tabular_synthesis/data/fake_datasets",
+                "--num_channels",
+                "128",
+                "--class_cond",
+                "True",
+                "--num_res_blocks",
+                "3",
+                "--num_channels",
+                "128",
+                "--num_res_blocks",
+                "3",
+                "--diffusion_steps",
+                "50",
+                "--noise_schedule",
+                "linear",
+                "--num_samples",
+                "22",
+                "--batch_size",
+                "10",
+                "--learn_sigma",
+                "True"
+            ]
+        },{
             "name": "sample",
             "type": "python",
             "request": "launch",
@@ -128,42 +165,12 @@
                 "4",
                 "--model_path",
                 "C:\\Users\\SvenG\\Documents\\Git_Repos\\Tabular-Data-Synthesis-Repos\\guided-diffusion\\models\\64x64_diffusion.pt",
-
                 "--batch_size",
                 "1",
                 "--num_samples",
                 "1",
                 "--timestep_respacing",
                 "250"
-                
-            ]
-        },
-        {
-            "name": "sample_old",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "args":[
-                "--model_path", 
-                "C:\\Users\\SvenG\\AppData\\Local\\Temp\\openai-2022-10-10-13-30-40-143194\\model000000.pt",
-                "--image_size",
-                "64",
-                "--num_channels",
-                "128",
-                "--num_res_blocks",
-                "3",
-                "--diffusion_steps",
-                "50",
-                "--noise_schedule",
-                "linear",
-                "--num_samples",
-                "1",
-                "--batch_size",
-                "1",
-                "--learn_sigma",
-                "True"
             ]
         }
     ]

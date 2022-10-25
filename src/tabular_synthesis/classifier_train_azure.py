@@ -61,7 +61,7 @@ def main():
     print(tabular_loader.side)
     # args.classifier_resblock_updown = False
     args.in_channels = tabular_loader.patch_size 
-    args.out_channels = tabular_loader.patch_size * tabular_loader.cond_generator_train.n_opt
+    args.out_channels = tabular_loader.cond_generator_train.n_opt #  * tabular_loader.patch_size ? 
 
     print("creating model and diffusion...")
     model, diffusion = create_classifier_and_diffusion(
