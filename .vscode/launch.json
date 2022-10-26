@@ -2,6 +2,22 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "quick_evaluate",
+            "type": "python",
+            "request": "launch",
+            "program": "src/tabular_synthesis/quick_evaluation_azure.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--real_dataset_path",
+                "src/tabular_synthesis/data/real_datasets/adult/adult.data",
+                "--synthetic_dataset_path",
+                "src/tabular_synthesis/data/real_datasets/adult/adult.test",
+                "--config_path",
+                "src/tabular_synthesis/data/config/adult.json",
+            ]
+        },
+        {
             "name": "train_classifier",
             "type": "python",
             "request": "launch",

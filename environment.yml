@@ -11,6 +11,7 @@ dependencies:
     - -e git+https://github.com/SvenGroen/Tabular-Data-Synthesis#egg=tabular-synthesis
     - azure-core
     - azureml-core
+    - table_evaluator==1.4.2
     - atomicwrites==1.4.1
     - attrs==22.1.0
     - blobfile==2.0.0
@@ -57,5 +58,4 @@ dependencies:
     - typing-extensions==4.3.0
     - urllib3==1.26.12
     - virtualenv==20.16.5
-    - 
 prefix: C:\ProgramData\Anaconda3\envs\tabsyn-test

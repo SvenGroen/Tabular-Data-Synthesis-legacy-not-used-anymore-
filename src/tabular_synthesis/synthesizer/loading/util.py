@@ -19,14 +19,14 @@ def get_dataset_config(path:str):
         print(f"Dataset config not found ({path})")
         return None 
 
-def get_dataset(path:str, config_path:str):
+def get_dataset(path:str, config_path:str, **kwargs):
     config = get_dataset_config(config_path)
     if config:
         if config["dataset_name"] == "adult" :
             features=["age","workclass","fnlwgt", "education", "education-num",	"marital-status", "occupation", "relationship", 
                         "race", "gender","capital-gain", "capital-loss", "hours-per-week","native-country", "income"]
             df=pd.read_csv(path, names=features, sep=r'\s*,\s*', 
-                engine='python', na_values="?")
+                engine='python', na_values="?",**kwargs)
 
             return df, config
 
