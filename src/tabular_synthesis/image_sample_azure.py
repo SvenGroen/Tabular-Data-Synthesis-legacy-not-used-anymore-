@@ -29,12 +29,20 @@ from tabular_synthesis.synthesizer.model.guided_diffusion.script_util import (
 def main():
     args = create_argparser().parse_args()
 
+    model_name = select_model(startswith="ema", options=os.listdir(args.model_path))
+
+    args.model_path = os.path.join(args.model_path, model_name)
+    
+    print("Trying to load: ", args.model_path)
+
     dist_util.setup_dist()
     run = Run.get_context()
     # logger.configure()
     print_CUDA_information()
 
     print("Loading original data...")
+    print(args.dataset_path)
+    print(args.config_path)
 
     data, data_config = get_dataset(args.dataset_path, args.config_path)
     tabular_loader = TabularLoader(
@@ -89,7 +97,7 @@ def main():
         # sample = sample.permute(0, 2, 3, 1)
         # sample = sample.contiguous()
 
-        sample = tabular_loader.inverse_batch(sample, image_shape=True)
+        sample = tabular_loader.inverse_batch(sample.cpu(), image_shape=True)
 
         # gathered_samples = [th.zeros_like(sample) for _ in range(dist.get_world_size())]
         # dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL
@@ -100,7 +108,7 @@ def main():
             ]
             dist.all_gather(gathered_labels, classes)
             all_labels.extend([labels.cpu().numpy() for labels in gathered_labels])
-        print(f"created {len(all_samples) * args.batch_size} samples")
+        print(f"created {len(all_samples)} samples")
     arr = all_samples.head(args.num_samples)
 
     if args.class_cond:
@@ -140,6 +148,10 @@ def create_argparser():
     add_dict_to_argparser(parser, defaults)
     return parser
 
+def select_model(startswith:str, options:list):
+    options = [e for e in options if e.startswith(startswith)]
+    options.sort()
+    return options[-1]
 
 def print_CUDA_information():
     print("CUDA information:")
