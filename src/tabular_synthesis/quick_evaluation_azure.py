@@ -14,14 +14,35 @@ def main():
     args = parser.parse_args()
     run = Run.get_context()
 
+    if not args.synthetic_dataset_path.endswith(".csv"):
+        folders = os.listdir(args.synthetic_dataset_path)
+        print("found: ", folders)
+        path = os.path.join(args.synthetic_dataset_path, folders[-1])
+        assert os.path.isdir(path)
+        files = os.listdir(path)
+        print("found: ", files)
+        path = os.path.join(path, files[-1])
+        args.synthetic_dataset_path = path
+
+
     real, config = get_dataset(args.real_dataset_path, args.config_path)
-    fake, _ = get_dataset(path=args.synthetic_dataset_path, config_path= args.config_path, skiprows=1)
-    fake["income"] = fake["income"].apply(lambda x: x.replace(".", ""))
-    # if len(real) > len(fake):
-    #     real = real.sample(len(fake))
-    # else:
-    #     fake = fake.sample(len(real))
-    # assert len(real) == len(fake)
+    fake, _ = get_dataset(path=args.synthetic_dataset_path, config_path= args.config_path, header=0)
+    
+    print(f"Lenght of real: {len(real)}")
+    print(f"Lenght of fake: {len(fake)}")
+
+    try:
+        fake.drop('condition', axis=1, inplace=True)
+    except Exception as e:
+        print(e)
+    
+    print(fake.columns)
+
+    if len(real) > len(fake):
+        real = real.sample(len(fake))
+    else:
+        fake = fake.sample(len(real))
+    assert len(real) == len(fake)
     if args.output_path is None:
         import tempfile
         dirpath = tempfile.mkdtemp()

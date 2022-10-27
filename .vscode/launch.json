@@ -12,7 +12,7 @@
                 "--real_dataset_path",
                 "src/tabular_synthesis/data/real_datasets/adult/adult.data",
                 "--synthetic_dataset_path",
-                "src/tabular_synthesis/data/real_datasets/adult/adult.test",
+                "src/tabular_synthesis/data/fake_datasets/adult/adult_26048x16.csv",
                 "--config_path",
                 "src/tabular_synthesis/data/config/adult.json",
             ]

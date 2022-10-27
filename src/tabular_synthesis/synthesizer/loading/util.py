@@ -25,8 +25,12 @@ def get_dataset(path:str, config_path:str, **kwargs):
         if config["dataset_name"] == "adult" :
             features=["age","workclass","fnlwgt", "education", "education-num",	"marital-status", "occupation", "relationship", 
                         "race", "gender","capital-gain", "capital-loss", "hours-per-week","native-country", "income"]
-            df=pd.read_csv(path, names=features, sep=r'\s*,\s*', 
-                engine='python', na_values="?",**kwargs)
+            if "header" in kwargs:
+                df = pd.read_csv(path)
+            else:
+                df=pd.read_csv(path, names=features, sep=r'\s*,\s*', 
+                    engine='python', na_values="?",**kwargs)
+
 
             return df, config
 
