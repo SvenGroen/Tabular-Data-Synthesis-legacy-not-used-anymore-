@@ -25,6 +25,17 @@ def main():
         args.synthetic_dataset_path = path
 
 
+    if not args.synthetic_dataset_path.endswith(".csv"):
+        folders = os.listdir(args.synthetic_dataset_path)
+        print("found: ", folders)
+        path = os.path.join(args.synthetic_dataset_path, folders[-1])
+        assert os.path.isdir(path)
+        files = os.listdir(path)
+        print("found: ", files)
+        path = os.path.join(path, files[-1])
+        args.synthetic_dataset_path = path
+
+
     real, config = get_dataset(args.real_dataset_path, args.config_path)
     fake, _ = get_dataset(path=args.synthetic_dataset_path, config_path= args.config_path, header=0)
     

@@ -80,7 +80,6 @@ def main():
     ).run_azure_loop(run=run, output_dir=args.output_path)
 
 
-
 def create_argparser():
     defaults = dict(
         dataset_path="",
