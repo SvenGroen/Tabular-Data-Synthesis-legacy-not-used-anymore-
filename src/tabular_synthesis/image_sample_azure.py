@@ -77,6 +77,9 @@ def main():
     print("sampling...")
     all_samples = pd.DataFrame()
     all_labels = []
+    print("args: ", args)
+    print ("len(all_samples): ",len(all_samples))
+    print("args.num_samples: ", args.num_samples)
     while len(all_samples) < args.num_samples:
         model_kwargs = {}
         if args.class_cond:
@@ -107,7 +110,12 @@ def main():
                 th.zeros_like(classes) for _ in range(dist.get_world_size())
             ]
             dist.all_gather(gathered_labels, classes)
-            all_labels.extend([labels.cpu().numpy() for labels in gathered_labels])
+            tmp=[labels.cpu().numpy() for labels in gathered_labels]
+            all_labels.extend(tmp)
+            print(classes)
+            print(tmp)
+
+
         print(f"created {len(all_samples)} samples")
     arr = all_samples.head(args.num_samples)
 
