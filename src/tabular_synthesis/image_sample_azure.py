@@ -47,7 +47,7 @@ def main():
     data, data_config = get_dataset(args.dataset_path, args.config_path)
     tabular_loader = TabularLoader(
         data=data,
-        test_ratio=0.2,
+        test_ratio=0.0,
         patch_size=1,
         batch_size=args.batch_size,
         **data_config["dataset_config"])
