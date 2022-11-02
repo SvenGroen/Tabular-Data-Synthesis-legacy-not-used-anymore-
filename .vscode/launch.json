@@ -67,7 +67,7 @@
             "name": "train_image",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "program": "src/tabular_synthesis/image_train_azure.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
@@ -80,9 +80,9 @@
                 "--learn_sigma",
                 "True",
                 "--iterations",
-                "1",
+                "6",
                 "--class_cond",
-                "True",
+                "False",
                 "--image_size",
                 "64",
                 "--num_channels",
@@ -96,7 +96,7 @@
                 "--lr",
                 "1e-4",
                 "--batch_size",
-                "1",
+                "128",
             ]
         },
         {
@@ -118,7 +118,7 @@
                 "--num_channels",
                 "128",
                 "--class_cond",
-                "True",
+                "False",
                 "--num_res_blocks",
                 "3",
                 "--num_channels",
@@ -134,7 +134,9 @@
                 "--batch_size",
                 "1",
                 "--learn_sigma",
-                "True"
+                "True",
+                "--use_fp16",
+                "False"
             ]
         },{
             "name": "sample",

@@ -177,13 +177,15 @@ class TrainLoop:
         ):
             try:
                 batch, cond = next(self.data)
+                
                 if th.isnan(batch).any():
                     print("Batch has nan value: ", batch)
             except StopIteration:
                 print("Stopping training")
                 self.save_azure(output_dir=output_dir)
                 break
-            cond["y"] = cond["y"].squeeze(1).argmax(-1) # <--- evtl. später löschen
+            if "y" in cond:
+                cond["y"] = cond["y"].squeeze(1).argmax(-1) # <--- evtl. später löschen
             self.run_azure_step(batch, cond)
             if self.step % self.log_interval == 0:
                 metrics = logger.dumpkvs()
@@ -220,6 +222,10 @@ class TrainLoop:
             last_batch = (i + self.microbatch) >= batch.shape[0]
             t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
 
+            print("batch: ", batch.type(), batch.device)
+            if cond:
+                print("cond: ", cond["y"].type(), cond["y"].device)
+            print("model dtype: ", self.model.dtype)
             compute_losses = functools.partial(
                 self.diffusion.training_losses,
                 self.ddp_model,

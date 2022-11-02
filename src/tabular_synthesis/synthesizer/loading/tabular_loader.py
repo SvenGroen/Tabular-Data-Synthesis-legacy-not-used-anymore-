@@ -8,6 +8,10 @@ from .transform.transformer import DataTransformer, ImageTransformer
 from .transform.data_preparation import DataPrep
 from .sampling.sampler import Sampler
 from .sampling.conditional_vector import Cond
+from .tabular_dataset import TabularDataset
+from torch.utils.data import Dataset, DataLoader
+
+
 
 
 class TabularLoader(object):
@@ -70,8 +74,10 @@ class TabularLoader(object):
         self.cond_generator_test = Cond(data=self.data_test, output_info=self.data_transformer.output_info)
         self.cond_vector = (None, None, None, None)
         self.side = self.determine_image_side()
-        self.Image_transformer = ImageTransformer(side=self.side)
+        self.image_transformer = ImageTransformer(side=self.side)
         print("Tabular Loader initialized successfully.")
+
+
 
 
     def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False):
@@ -91,7 +97,7 @@ class TabularLoader(object):
             data_batch = torch.from_numpy(data_batch).to(self.device)
             data_batch = torch.cat([data_batch, c[perm]], dim=1)
             if image_shape:
-                data_batch = self.Image_transformer.transform(data_batch)
+                data_batch = self.image_transformer.transform(data_batch)
             # else:
             #     data_batch = data_batch.unsqueeze(1).unsqueeze(1)
             c = c[perm]
@@ -105,8 +111,8 @@ class TabularLoader(object):
         # opt = torch.cat(opt, dim=0)
         # return data_batch, c, col, opt
         _c = torch.argmax(c, dim=-1)  # evtl später?
-        data_batch = data_batch.to(torch.half)
-        c = c.to(torch.half)
+        # data_batch = data_batch.to(torch.half)
+        # c = c.to(torch.half)
         return data_batch, c
 
     def determine_image_side(self):
@@ -121,7 +127,7 @@ class TabularLoader(object):
 
     def inverse_batch(self, batch, image_shape=False):
         if image_shape:
-            batch = self.Image_transformer.inverse_transform(batch)
+            batch = self.image_transformer.inverse_transform(batch)
         batch = self.apply_activate(batch)
         result, num_invalid_ids = self.data_transformer.inverse_transform(batch)
         # resample if invalid ids are found
@@ -160,19 +166,43 @@ class TabularLoader(object):
 
 
 class TabularLoaderIterator(TabularLoader):
-    def __init__(self, tabular_loader: TabularLoader, return_test = False, num_iterations=1000, *args, **kwargs, ):
+    def __init__(self, tabular_loader: TabularLoader, return_test = False, num_iterations=1000, class_cond=False, *args, **kwargs, ):
         self.tabular_loader = tabular_loader
         self.num_iterations = num_iterations 
         self.return_test = return_test
+        self.class_cond = class_cond
+        self.data = self.tabular_loader.data_test if self.return_test else self.tabular_loader.data_train
+        self._dataset_class = TabularDataset(self.data)
+        self._dataset_loader = DataLoader(self._dataset_class, batch_size=self.tabular_loader.batch_size, shuffle=True)
+
+
+    def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False):
+        if self.class_cond:
+            batch, c = self.tabular_loader.get_batch(image_shape=image_shape, return_test=return_test, shuffle_batch=shuffle_batch)
+            out = dict()
+            out["y"] = c
+            return batch, out
+        else:
+            batch_stack = []
+            for i in range(self.tabular_loader.patch_size):
+                batch = next(iter(self._dataset_loader))
+                batch_stack.append(batch)
+            out = dict()
+            data_batch = torch.cat(batch_stack, dim=1)
+            if image_shape:
+                data_batch = self.tabular_loader.image_transformer.transform(data_batch)
+            return data_batch, out
 
     def __next__(self):
         if self.num_iterations == 0:
             raise StopIteration
         self.num_iterations -= 1
         # batch, c, col, opt = self.get_batch(image_shape=True)
-        batch, c = self.tabular_loader.get_batch(image_shape=True, return_test=self.return_test)
-        # transform batch tensor to double tensor
+        batch, c = self.get_batch(image_shape=True, return_test=self.return_test, shuffle_batch=False)
+        # transform batch tensor to Long tensor
         batch = batch.type(torch.LongTensor)
-        out = dict()
-        out["y"] = c
-        return batch, out
+        # batch.to(torch.half)
+        # if "y" in c:
+        #     c["y"] = c["y"].to(torch.half)
+
+        return batch, c

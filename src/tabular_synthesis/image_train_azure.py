@@ -43,13 +43,8 @@ def main():
         batch_size=args.batch_size,
         **data_config["dataset_config"])
 
-    train_loader = TabularLoaderIterator(tabular_loader, return_test=False, num_iterations=args.iterations)
-    try:
-        print("Bayesian at 2: ", train_loader.tabular_loader.data_transformer.model[2].means_)
-    except Exception:
-        print("found in train loader: ", train_loader.tabular_loader.data_transformer.model)
-
-    val_loader = TabularLoaderIterator(tabular_loader, return_test=True, num_iterations=args.iterations)
+    train_loader = TabularLoaderIterator(tabular_loader, return_test=False, num_iterations=args.iterations, class_cond=args.class_cond)
+    val_loader = TabularLoaderIterator(tabular_loader, return_test=True, num_iterations=args.iterations, class_cond=args.class_cond)
 
 
     # setting arguments for the classifier using the tabular_loader
