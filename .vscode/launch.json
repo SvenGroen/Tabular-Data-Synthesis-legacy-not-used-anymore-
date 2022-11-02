@@ -96,7 +96,7 @@
                 "--lr",
                 "1e-4",
                 "--batch_size",
-                "10",
+                "1",
             ]
         },
         {
@@ -108,7 +108,7 @@
             "justMyCode": true,
             "args":[
                 "--model_path", 
-                "src/tabular_synthesis/output/model000001.pt",
+                "src/tabular_synthesis/output",
                 "--dataset_path",
                 "src/tabular_synthesis/data/real_datasets/adult/adult.data",
                 "--config_path",
@@ -132,7 +132,7 @@
                 "--num_samples",
                 "22",
                 "--batch_size",
-                "10",
+                "1",
                 "--learn_sigma",
                 "True"
             ]

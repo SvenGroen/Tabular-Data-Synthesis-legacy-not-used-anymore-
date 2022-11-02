@@ -94,12 +94,12 @@ class DataTransformer:
                         else:
                             comp.append(False)
                     self.components.append(comp)
-                    self.output_info += [(1, 'tanh', 'no_g'), (np.sum(comp), 'softmax')]
+                    self.output_info += [(1, 'tanh', 'no_g', info['name_str']), (np.sum(comp), 'softmax', info['name_str'])]
                     self.output_dim += 1 + np.sum(comp)
                 else:
                     model.append(None)
                     self.components.append(None)
-                    self.output_info += [(1, 'tanh', 'yes_g')]
+                    self.output_info += [(1, 'tanh', 'yes_g',info['name_str'])]
                     self.output_dim += 1
 
             elif info['type'] == "mixed":
@@ -141,12 +141,12 @@ class DataTransformer:
 
                 self.components.append(comp)
 
-                self.output_info += [(1, 'tanh', "no_g"), (np.sum(comp) + len(info['modal']), 'softmax')]
+                self.output_info += [(1, 'tanh', "no_g", info['name_str']), (np.sum(comp) + len(info['modal']), 'softmax', info['name_str'])]
                 self.output_dim += 1 + np.sum(comp) + len(info['modal'])
             else:
                 model.append(None)
                 self.components.append(None)
-                self.output_info += [(info['size'], 'softmax')]
+                self.output_info += [(info['size'], 'softmax', info['name_str'])]
                 self.output_dim += info['size']
             description = f"Column number {info['name']} is " \
                           f"{info['name_str']}," \
