@@ -37,6 +37,8 @@ def main():
 
 
     real, config = get_dataset(args.real_dataset_path, args.config_path)
+    real = real.sample(n=400, random_state=42)
+
     fake, _ = get_dataset(path=args.synthetic_dataset_path, config_path= args.config_path, header=0)
     
     print(f"Lenght of real: {len(real)}")
