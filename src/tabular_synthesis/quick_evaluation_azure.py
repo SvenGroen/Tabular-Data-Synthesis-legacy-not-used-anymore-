@@ -37,6 +37,8 @@ def main():
 
 
     real, config = get_dataset(args.real_dataset_path, args.config_path)
+    real = real.sample(n=400, random_state=42)
+
     fake, _ = get_dataset(path=args.synthetic_dataset_path, config_path= args.config_path, header=0)
     
     print(f"Lenght of real: {len(real)}")
@@ -54,16 +56,19 @@ def main():
     else:
         fake = fake.sample(len(real))
     assert len(real) == len(fake)
+    
     if args.output_path is None:
         import tempfile
         dirpath = tempfile.mkdtemp()
+    else:
+        dirpath = args.output_path
 
     table_evaluator = TableEvaluator(real, fake, cat_cols=config["dataset_config"]["categorical_columns"], verbose=True)
-    table_evaluator.visual_evaluation(save_dir=dirpath if args.output_path is None else args.output_path)
+    table_evaluator.visual_evaluation(save_dir=dirpath)
 
     # print every file in dirpath
-    for file in os.listdir(dirpath):
-        run.log_image(file, os.path.join(dirpath, file))
+    for f in os.listdir(dirpath):
+        run.log_image(f, os.path.join(dirpath, f))
 
     output = table_evaluator.evaluate(target_col=config["dataset_config"]["problem_type"]["Classification"], return_outputs=True)
 

@@ -20,6 +20,8 @@ from tabular_synthesis.synthesizer.loading.tabular_loader import TabularLoader, 
 
 def main():
     args = create_argparser().parse_args()
+    print("Arguments: ")
+    print(args)
 
     dist_util.setup_dist()
     run = Run.get_context()
@@ -28,20 +30,25 @@ def main():
 
 
     data, data_config = get_dataset(args.dataset_path, args.config_path)
-    # data = data.sample(n=400, random_state=42)
+    data = data.sample(n=400, random_state=42)
 
-    if args.iterations == -1:
-        args.iterations = int(len(data) / args.batch_size)
+    if args.iterations <0:
+        args.iterations = abs(args.iterations) * int(len(data) / args.batch_size)
     print("iterating for ", args.iterations, " steps...")
 
     tabular_loader = TabularLoader(
         data=data,
-        test_ratio=0.2,
+        test_ratio=0.0,
         patch_size=1,
         batch_size=args.batch_size,
         **data_config["dataset_config"])
 
     train_loader = TabularLoaderIterator(tabular_loader, return_test=False, num_iterations=args.iterations)
+    try:
+        print("Bayesian at 2: ", train_loader.tabular_loader.data_transformer.model[2].means_)
+    except Exception:
+        print("found in train loader: ", train_loader.tabular_loader.data_transformer.model)
+
     val_loader = TabularLoaderIterator(tabular_loader, return_test=True, num_iterations=args.iterations)
 
 

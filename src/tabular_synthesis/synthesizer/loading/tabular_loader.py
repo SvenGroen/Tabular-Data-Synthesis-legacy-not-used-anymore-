@@ -58,8 +58,11 @@ class TabularLoader(object):
         self.data_transformer.fit()
         self.transformed_data = self.data_transformer.transform(self.data_prep.df.values)
         # train test split:
-
-        self.data_train, self.data_test = train_test_split(self.transformed_data, test_size=self.test_ratio)
+        if test_ratio == 0:
+            self.data_train = self.transformed_data
+            self.data_test = self.transformed_data
+        else:
+            self.data_train, self.data_test = train_test_split(self.transformed_data, test_size=self.test_ratio)
         print("Setting up Sampler, Cond and ImageTransformer...")
         self.sampler_train = Sampler(data=self.data_train, output_info=self.data_transformer.output_info)
         self.cond_generator_train = Cond(data=self.data_train, output_info=self.data_transformer.output_info)
@@ -102,6 +105,8 @@ class TabularLoader(object):
         # opt = torch.cat(opt, dim=0)
         # return data_batch, c, col, opt
         _c = torch.argmax(c, dim=-1)  # evtl später?
+        data_batch = data_batch.to(torch.half)
+        c = c.to(torch.half)
         return data_batch, c
 
     def determine_image_side(self):

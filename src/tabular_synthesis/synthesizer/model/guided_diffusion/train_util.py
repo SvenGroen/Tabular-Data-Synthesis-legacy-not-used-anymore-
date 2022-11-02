@@ -177,6 +177,8 @@ class TrainLoop:
         ):
             try:
                 batch, cond = next(self.data)
+                if th.isnan(batch).any():
+                    print("Batch has nan value: ", batch)
             except StopIteration:
                 print("Stopping training")
                 self.save_azure(output_dir=output_dir)

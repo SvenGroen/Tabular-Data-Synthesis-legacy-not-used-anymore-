@@ -28,8 +28,12 @@ from tabular_synthesis.synthesizer.model.guided_diffusion.script_util import (
 
 def main():
     args = create_argparser().parse_args()
+    print("Arguments: ")
+    print(args)
 
     model_name = select_model(startswith="ema", options=os.listdir(args.model_path))
+
+    print("Using: ", model_name)
 
     args.model_path = os.path.join(args.model_path, model_name)
     
@@ -45,16 +49,23 @@ def main():
     print(args.config_path)
 
     data, data_config = get_dataset(args.dataset_path, args.config_path)
+    data = data.sample(n=400, random_state=42)
+
     tabular_loader = TabularLoader(
         data=data,
-        test_ratio=0.2,
+        test_ratio=0.0,
         patch_size=1,
         batch_size=args.batch_size,
         **data_config["dataset_config"])
 
+    try:
+        print("Bayesian at 2: ",tabular_loader.data_transformer.model[2].means_)
+    except Exception:
+        print("found in train loader: ", tabular_loader.data_transformer.model)
+
     args.num_classes = tabular_loader.cond_generator_train.n_opt
-    if args.num_samples == -1:
-        args.num_samples = len(tabular_loader.data_train)
+    if args.num_samples <0:
+        args.num_samples = abs(args.num_samples) * len(tabular_loader.data_train)
     args.in_channels = tabular_loader.patch_size 
     args.image_size = tabular_loader.side
 
@@ -77,6 +88,10 @@ def main():
     print("sampling...")
     all_samples = pd.DataFrame()
     all_labels = []
+    print("args: ", args)
+    print ("len(all_samples): ",len(all_samples))
+    print("args.num_samples: ", args.num_samples)
+
     while len(all_samples) < args.num_samples:
         model_kwargs = {}
         if args.class_cond:
@@ -96,6 +111,9 @@ def main():
         # sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
         # sample = sample.permute(0, 2, 3, 1)
         # sample = sample.contiguous()
+        if len(all_samples) == 0:
+            print(f"Example Sample with shape {sample.shape}: \n", sample)
+            print(f"Min is {sample.min()} and Max is {sample.max()}")
 
         sample = tabular_loader.inverse_batch(sample.cpu(), image_shape=True)
 
@@ -107,7 +125,8 @@ def main():
                 th.zeros_like(classes) for _ in range(dist.get_world_size())
             ]
             dist.all_gather(gathered_labels, classes)
-            all_labels.extend([labels.cpu().numpy() for labels in gathered_labels])
+            tmp=[labels.cpu().numpy() for labels in gathered_labels]
+            all_labels.extend(tmp)
         print(f"created {len(all_samples)} samples")
     arr = all_samples.head(args.num_samples)
 
@@ -151,6 +170,7 @@ def create_argparser():
 def select_model(startswith:str, options:list):
     options = [e for e in options if e.startswith(startswith)]
     options.sort()
+    print("Found model options: ", options)
     return options[-1]
 
 def print_CUDA_information():

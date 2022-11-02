@@ -24,6 +24,7 @@ def get_named_beta_schedule(schedule_name, num_diffusion_timesteps):
     Beta schedules may be added, but should not be removed or changed once
     they are committed to maintain backwards compatibility.
     """
+    print("Schedule name: ", schedule_name)
     if schedule_name == "linear":
         # Linear schedule from Ho et al, extended to work for any number of
         # diffusion steps.
@@ -199,11 +200,14 @@ class GaussianDiffusion:
         if noise is None:
             noise = th.randn_like(x_start)
         assert noise.shape == x_start.shape
-        return (
+        result =(
             _extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
             + _extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
             * noise
         )
+        print("qsample result (noisy version of x_start) minmax: ")# DELETE
+        print(result.min(),"\t", result.max()) # DELETE
+        return result
 
     def q_posterior_mean_variance(self, x_start, x_t, t):
         """
@@ -259,6 +263,7 @@ class GaussianDiffusion:
         assert t.shape == (B,)
         model_output = model(x, self._scale_timesteps(t), **model_kwargs)
 
+
         if self.model_var_type in [ModelVarType.LEARNED, ModelVarType.LEARNED_RANGE]:
             assert model_output.shape == (B, C * 2, *x.shape[2:])
             model_output, model_var_values = th.split(model_output, C, dim=1)
@@ -271,7 +276,7 @@ class GaussianDiffusion:
                 )
                 max_log = _extract_into_tensor(np.log(self.betas), t, x.shape)
                 # The model_var_values is [-1, 1] for [min_var, max_var].
-                frac = (model_var_values + 1) / 2
+                frac = (model_var_values + 1) / 2 # makes it it [0, 1 range]
                 model_log_variance = frac * max_log + (1 - frac) * min_log
                 model_variance = th.exp(model_log_variance)
         else:
@@ -757,8 +762,9 @@ class GaussianDiffusion:
         if model_kwargs is None:
             model_kwargs = {}
         if noise is None:
-            noise = th.randn_like(x_start.float()) # <--- evtl. .float() löschen auf gpu
+            noise = th.randn_like(x_start.to(th.half)) # <--- evtl. .float() löschen auf gpu
         x_t = self.q_sample(x_start, t, noise=noise)
+        print("x_t.shape: ", x_t.shape) # DELETE
 
         terms = {}
 
@@ -775,6 +781,9 @@ class GaussianDiffusion:
                 terms["loss"] *= self.num_timesteps
         elif self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE:
             model_output = model(x_t, self._scale_timesteps(t), **model_kwargs)
+            B, C = x_t.shape[:2]
+            assert model_output.shape == (B, C * 2, *x_t.shape[2:])
+
 
             if self.model_var_type in [
                 ModelVarType.LEARNED,
@@ -806,9 +815,14 @@ class GaussianDiffusion:
                 ModelMeanType.EPSILON: noise,
             }[self.model_mean_type]
             assert model_output.shape == target.shape == x_start.shape
+
+            zeros = th.zeros_like(x_start)
+            out = th.where(x_start==1, model_output, zeros)
+            tar = th.where(x_start==1, target, zeros)
+            terms["mse@ones"] = mean_flat((tar - out) ** 2)
             terms["mse"] = mean_flat((target - model_output) ** 2)
             if "vb" in terms:
-                terms["loss"] = terms["mse"] + terms["vb"]
+                terms["loss"] = terms["mse"] + terms["vb"] + terms["mse@ones"]
             else:
                 terms["loss"] = terms["mse"]
         else:

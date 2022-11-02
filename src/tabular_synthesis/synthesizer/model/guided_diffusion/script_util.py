@@ -162,8 +162,10 @@ def create_model(
             channel_mult = (1, 1, 2, 2, 4, 4)
         elif image_size == 128:
             channel_mult = (1, 1, 2, 3, 4)
-        elif image_size in [64,32]:
+        elif image_size == 64:
             channel_mult = (1, 2, 3, 4)
+        elif image_size == 32:
+            channel_mult = (1, 2, 2, 2)
         else:
             raise ValueError(f"unsupported image size: {image_size}")
     else:
@@ -258,8 +260,10 @@ def create_classifier(
         channel_mult = (1, 1, 2, 2, 4, 4)
     elif image_size == 128:
         channel_mult = (1, 1, 2, 3, 4)
-    elif image_size in [64,32]:
+    elif image_size == 64:
         channel_mult = (1, 2, 3, 4)
+    elif image_size == 32:
+        channel_mult = (1, 2, 2, 2)
     elif image_size == -1:
         channel_mult = (1, 2)
     else:
@@ -421,6 +425,8 @@ def create_gaussian_diffusion(
         loss_type = gd.LossType.RESCALED_MSE
     else:
         loss_type = gd.LossType.MSE
+    
+    print("Using Loss type: ", loss_type)
     if not timestep_respacing:
         timestep_respacing = [steps]
     return SpacedDiffusion(
