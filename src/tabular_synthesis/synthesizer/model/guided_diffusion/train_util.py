@@ -177,6 +177,9 @@ class TrainLoop:
         ):
             try:
                 batch, cond = next(self.data)
+                batch = batch.to(dist_util.dev()) # BATCH TO DEVICE
+                if self.use_fp16:
+                    batch=batch.to(th.half)
                 if th.isnan(batch).any():
                     print("Batch has nan value: ", batch)
             except StopIteration:
@@ -187,6 +190,9 @@ class TrainLoop:
                 self.data.loss_mask = th.ones_like(batch)
             if "y" in cond:
                 cond["y"] = cond["y"].squeeze(1).argmax(-1) # <--- evtl. später löschen
+                cond["y"] = cond["y"].to(dist_util.dev())
+                if self.use_fp16:
+                    cond["y"]=cond["y"].to(th.half)
             self.run_azure_step(batch, cond)
             if self.step % self.log_interval == 0:
                 metrics = logger.dumpkvs()
@@ -234,7 +240,7 @@ class TrainLoop:
                 t,
                 model_kwargs=micro_cond,
             )
-            self.diffusion.loss_mask = self.data.loss_mask
+            self.diffusion.set_loss_mask(self.data.loss_mask, device=dist_util.dev())
             if last_batch or not self.use_ddp:
                 losses = compute_losses()
             else:

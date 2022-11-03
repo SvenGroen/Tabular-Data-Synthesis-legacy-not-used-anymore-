@@ -11,6 +11,7 @@ import math
 import numpy as np
 import torch as th
 
+from . import dist_util
 from .nn import mean_flat
 from .losses import normal_kl, discretized_gaussian_log_likelihood
 
@@ -170,8 +171,8 @@ class GaussianDiffusion:
             * np.sqrt(alphas)
             / (1.0 - self.alphas_cumprod)
         )
-    def set_loss_mask(self, loss_mask):
-        self.loss_mask = loss_mask
+    def set_loss_mask(self, loss_mask, device):
+        self.loss_mask = loss_mask.to(device)
 
     def q_mean_variance(self, x_start, t):
         """

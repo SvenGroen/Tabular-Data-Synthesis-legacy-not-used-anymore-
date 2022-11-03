@@ -75,13 +75,13 @@ class TabularLoader(object):
         self.cond_vector = (None, None, None, None)
         self.side = self.determine_image_side()
         self.image_transformer = ImageTransformer(side=self.side)
-        self.loss_mask = torch.Tensor([])
+        self.loss_mask = torch.Tensor([]).to(self.device)
         print("Tabular Loader initialized successfully.")
 
 
 
 
-    def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False, padding="zeros"):
+    def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False, padding="zero"):
         patch_list = []
         cond_generator = self.cond_generator_test if return_test else self.cond_generator_train
         sampler = self.sampler_test if return_test else self.sampler_train
@@ -101,6 +101,7 @@ class TabularLoader(object):
             if image_shape:
                 data_batch = self.image_transformer.transform(data_batch, padding=padding)
                 self.loss_mask = self.image_transformer.transform(self.loss_mask, padding="zero")
+            self.loss_mask = self.loss_mask.to(self.device)
             # else:
             #     data_batch = data_batch.unsqueeze(1).unsqueeze(1)
             c = c[perm]
@@ -180,13 +181,14 @@ class TabularLoaderIterator(TabularLoader):
         self.data = self.tabular_loader.data_test if self.return_test else self.tabular_loader.data_train
         self._dataset_class = TabularDataset(self.data)
         self._dataset_loader = DataLoader(self._dataset_class, batch_size=self.tabular_loader.batch_size, shuffle=True)
-        self.loss_mask =self.tabular_loader.loss_mask
+        self.device = self.tabular_loader.device
+        self.loss_mask =self.tabular_loader.loss_mask.to(self.device)
 
 
-    def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False, padding="zeros"):
+    def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False, padding="zero"):
         if self.class_cond:
             batch, c = self.tabular_loader.get_batch(image_shape=image_shape, return_test=return_test, shuffle_batch=shuffle_batch, padding=padding)
-            self.loss_mask = self.tabular_loader.loss_mask
+            self.loss_mask = self.tabular_loader.loss_mask.to(self.device)
             out = dict()
             out["y"] = c
             return batch, out
@@ -201,6 +203,7 @@ class TabularLoaderIterator(TabularLoader):
             if image_shape:
                 data_batch = self.tabular_loader.image_transformer.transform(data_batch, padding=padding)
                 self.loss_mask = self.tabular_loader.image_transformer.transform(self.loss_mask, padding="zero")
+            self.loss_mask = self.loss_mask.to(self.device)
             return data_batch, out
 
     def __next__(self):
