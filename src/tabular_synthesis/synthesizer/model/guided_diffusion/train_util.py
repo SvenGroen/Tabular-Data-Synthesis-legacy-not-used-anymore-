@@ -170,20 +170,21 @@ class TrainLoop:
         if (self.step - 1) % self.save_interval != 0:
             self.save()
 
-    def run_azure_loop(self, run, output_dir):
+    def run_azure_loop(self, run, output_dir, use_loss_mask=False):
         while (
             not self.lr_anneal_steps
             or self.step + self.resume_step < self.lr_anneal_steps
         ):
             try:
                 batch, cond = next(self.data)
-                
                 if th.isnan(batch).any():
                     print("Batch has nan value: ", batch)
             except StopIteration:
                 print("Stopping training")
                 self.save_azure(output_dir=output_dir)
                 break
+            if not use_loss_mask:
+                self.data.loss_mask = th.ones_like(batch)
             if "y" in cond:
                 cond["y"] = cond["y"].squeeze(1).argmax(-1) # <--- evtl. später löschen
             self.run_azure_step(batch, cond)
@@ -233,7 +234,7 @@ class TrainLoop:
                 t,
                 model_kwargs=micro_cond,
             )
-
+            self.diffusion.loss_mask = self.data.loss_mask
             if last_batch or not self.use_ddp:
                 losses = compute_losses()
             else:
