@@ -124,11 +124,13 @@ class GaussianDiffusion:
         model_var_type,
         loss_type,
         rescale_timesteps=False,
+        loss_mask = None,
     ):
         self.model_mean_type = model_mean_type
         self.model_var_type = model_var_type
         self.loss_type = loss_type
         self.rescale_timesteps = rescale_timesteps
+        self.loss_mask = loss_mask
 
         # Use float64 for accuracy.
         betas = np.array(betas, dtype=np.float64)
@@ -168,6 +170,8 @@ class GaussianDiffusion:
             * np.sqrt(alphas)
             / (1.0 - self.alphas_cumprod)
         )
+    def set_loss_mask(self, loss_mask):
+        self.loss_mask = loss_mask
 
     def q_mean_variance(self, x_start, t):
         """
@@ -733,13 +737,19 @@ class GaussianDiffusion:
         kl = normal_kl(
             true_mean, true_log_variance_clipped, out["mean"], out["log_variance"]
         )
-        kl = mean_flat(kl) / np.log(2.0)
+
 
         decoder_nll = -discretized_gaussian_log_likelihood(
             x_start, means=out["mean"], log_scales=0.5 * out["log_variance"]
         )
         assert decoder_nll.shape == x_start.shape
+        # Apply loss mask (Maybe delete later)
+        if self.loss_mask is not None:
+            decoder_nll = decoder_nll * self.loss_mask
+            kl = kl * self.loss_mask
+
         decoder_nll = mean_flat(decoder_nll) / np.log(2.0)
+        kl = mean_flat(kl) / np.log(2.0)
 
         # At the first timestep return the decoder NLL,
         # otherwise return KL(q(x_{t-1}|x_t,x_0) || p(x_{t-1}|x_t))
@@ -764,7 +774,7 @@ class GaussianDiffusion:
         if noise is None:
             noise = th.randn_like(x_start.to(th.half)) # <--- evtl. .float() löschen auf gpu
         x_t = self.q_sample(x_start, t, noise=noise)
-        print("x_t.shape: ", x_t.shape) # DELETE
+
 
         terms = {}
 
@@ -816,13 +826,16 @@ class GaussianDiffusion:
             }[self.model_mean_type]
             assert model_output.shape == target.shape == x_start.shape
 
-            zeros = th.zeros_like(x_start)
-            out = th.where(x_start==1, model_output, zeros)
-            tar = th.where(x_start==1, target, zeros)
-            terms["mse@ones"] = mean_flat((tar - out) ** 2)
+            # zeros = th.zeros_like(x_start)
+            # out = th.where(x_start==1, model_output, zeros)
+            # tar = th.where(x_start==1, target, zeros)
+            # terms["mse@ones"] = mean_flat((tar - out) ** 2)
+            target = target * self.loss_mask
+            model_output = model_output * self.loss_mask
+
             terms["mse"] = mean_flat((target - model_output) ** 2)
             if "vb" in terms:
-                terms["loss"] = terms["mse"] + terms["vb"] + terms["mse@ones"]
+                terms["loss"] = terms["mse"] + terms["vb"]
             else:
                 terms["loss"] = terms["mse"]
         else:

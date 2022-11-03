@@ -417,6 +417,7 @@ class DataTransformer:
         valid_ids = list(set(all_ids) - set(invalid_ids))
 
         return data_t[valid_ids], len(invalid_ids)
+        # return data_t, len(invalid_ids)
 
 
 class ImageTransformer:
@@ -424,12 +425,22 @@ class ImageTransformer:
     def __init__(self, side):
         self.height = side
 
-    def transform(self, data):
-        if self.height * self.height > len(data[0]):
-            padding = torch.zeros((len(data), self.height * self.height - len(data[0]))).to(data.device)
-            data = torch.cat([data, padding], axis=1)
+    def transform(self, data, padding="zero"):
+        if padding not in ["zero", "same"]:
+            raise ValueError("Padding must be 'same' or 'zero'")
+        if padding == "zero":
+            if self.height * self.height > len(data[0]):
+                padding = torch.zeros((len(data), self.height * self.height - len(data[0]))).to(data.device)
+                data = torch.cat([data, padding], axis=1)
+            return data.view(-1, 1, self.height, self.height)
+        if padding == "same":
+            while self.height * self.height > len(data[0]):
+                data = torch.cat([data, data], axis=1)
+            # cut of the end:
+            data = data[:, :self.height * self.height]
+            data = data.view(-1, 1, self.height, self.height)
+            return data
 
-        return data.view(-1, 1, self.height, self.height)
 
     def inverse_transform(self, data):
         data = data.view(-1, self.height * self.height)

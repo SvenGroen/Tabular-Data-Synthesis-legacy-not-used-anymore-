@@ -75,12 +75,13 @@ class TabularLoader(object):
         self.cond_vector = (None, None, None, None)
         self.side = self.determine_image_side()
         self.image_transformer = ImageTransformer(side=self.side)
+        self.loss_mask = torch.Tensor([])
         print("Tabular Loader initialized successfully.")
 
 
 
 
-    def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False):
+    def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False, padding="zeros"):
         patch_list = []
         cond_generator = self.cond_generator_test if return_test else self.cond_generator_train
         sampler = self.sampler_test if return_test else self.sampler_train
@@ -95,9 +96,11 @@ class TabularLoader(object):
             data_batch = sampler.sample(n=self.batch_size, col=col[perm], opt=opt[perm])
             # data_batch = data_batch.astype(np.float32)
             data_batch = torch.from_numpy(data_batch).to(self.device)
+            self.loss_mask = torch.ones_like(data_batch) # does not include conditional vector ! (maybe try out later with cond vector)
             data_batch = torch.cat([data_batch, c[perm]], dim=1)
             if image_shape:
-                data_batch = self.image_transformer.transform(data_batch)
+                data_batch = self.image_transformer.transform(data_batch, padding=padding)
+                self.loss_mask = self.image_transformer.transform(self.loss_mask, padding="zero")
             # else:
             #     data_batch = data_batch.unsqueeze(1).unsqueeze(1)
             c = c[perm]
@@ -128,9 +131,12 @@ class TabularLoader(object):
     def inverse_batch(self, batch, image_shape=False):
         if image_shape:
             batch = self.image_transformer.inverse_transform(batch)
+        # _batch= batch[:,:100]
+        # _inverse, ids = self.data_transformer.inverse_transform(_batch)
         batch = self.apply_activate(batch)
         result, num_invalid_ids = self.data_transformer.inverse_transform(batch)
         # resample if invalid ids are found
+        print("Number of invalid ids: ", num_invalid_ids)
         while len(result) < self.batch_size:
             re, num_invalid_ids = self.data_transformer.inverse_transform(batch)
             result = np.concatenate([result, re], axis=0)
@@ -174,11 +180,13 @@ class TabularLoaderIterator(TabularLoader):
         self.data = self.tabular_loader.data_test if self.return_test else self.tabular_loader.data_train
         self._dataset_class = TabularDataset(self.data)
         self._dataset_loader = DataLoader(self._dataset_class, batch_size=self.tabular_loader.batch_size, shuffle=True)
+        self.loss_mask =self.tabular_loader.loss_mask
 
 
-    def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False):
+    def get_batch(self, image_shape=False, return_test=False, shuffle_batch=False, padding="zeros"):
         if self.class_cond:
-            batch, c = self.tabular_loader.get_batch(image_shape=image_shape, return_test=return_test, shuffle_batch=shuffle_batch)
+            batch, c = self.tabular_loader.get_batch(image_shape=image_shape, return_test=return_test, shuffle_batch=shuffle_batch, padding=padding)
+            self.loss_mask = self.tabular_loader.loss_mask
             out = dict()
             out["y"] = c
             return batch, out
@@ -189,8 +197,10 @@ class TabularLoaderIterator(TabularLoader):
                 batch_stack.append(batch)
             out = dict()
             data_batch = torch.cat(batch_stack, dim=1)
+            self.loss_mask = torch.ones_like(data_batch)
             if image_shape:
-                data_batch = self.tabular_loader.image_transformer.transform(data_batch)
+                data_batch = self.tabular_loader.image_transformer.transform(data_batch, padding=padding)
+                self.loss_mask = self.tabular_loader.image_transformer.transform(self.loss_mask, padding="zero")
             return data_batch, out
 
     def __next__(self):
@@ -198,7 +208,7 @@ class TabularLoaderIterator(TabularLoader):
             raise StopIteration
         self.num_iterations -= 1
         # batch, c, col, opt = self.get_batch(image_shape=True)
-        batch, c = self.get_batch(image_shape=True, return_test=self.return_test, shuffle_batch=False)
+        batch, c = self.get_batch(image_shape=True, return_test=self.return_test, shuffle_batch=False, padding="same")
         # transform batch tensor to Long tensor
         batch = batch.type(torch.LongTensor)
         # batch.to(torch.half)
