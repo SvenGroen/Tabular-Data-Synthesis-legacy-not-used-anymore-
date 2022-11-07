@@ -241,11 +241,12 @@ class TrainLoop:
                 model_kwargs=micro_cond,
             )
             self.diffusion.set_loss_mask(self.data.loss_mask, device=dist_util.dev())
+            noise =  th.randn_like(batch.to(th.half)) * 0.1 # smaller noise maybe delete later
             if last_batch or not self.use_ddp:
-                losses = compute_losses()
+                losses = compute_losses(noise=noise)
             else:
                 with self.ddp_model.no_sync():
-                    losses = compute_losses()
+                    losses = compute_losses(noise=noise)
 
             if isinstance(self.schedule_sampler, LossAwareSampler):
                 self.schedule_sampler.update_with_local_losses(

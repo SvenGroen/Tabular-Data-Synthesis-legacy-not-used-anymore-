@@ -30,7 +30,7 @@ def main():
 
 
     data, data_config = get_dataset(args.dataset_path, args.config_path)
-    data = data.sample(n=400, random_state=42)
+    # data = data.sample(n=400, random_state=42)
 
     if args.iterations <0:
         args.iterations = abs(args.iterations) * int(len(data) / args.batch_size)

@@ -82,7 +82,7 @@
                 "--iterations",
                 "6",
                 "--class_cond",
-                "False",
+                "True",
                 "--image_size",
                 "64",
                 "--num_channels",

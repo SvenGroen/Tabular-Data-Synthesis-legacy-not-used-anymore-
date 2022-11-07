@@ -102,9 +102,13 @@ def main():
         sample_fn = (
             diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
         )
+
+        noise =  th.randn(size=(args.batch_size, tabular_loader.patch_size, args.image_size, args.image_size)) * 0.1 # smaller noise maybe delete later
+        noise = noise.to(th.half).to(dist_util.dev())
         sample = sample_fn(
             model,
             (args.batch_size, tabular_loader.patch_size, args.image_size, args.image_size),
+            noise=noise,
             clip_denoised=args.clip_denoised,
             model_kwargs=model_kwargs,
         )
