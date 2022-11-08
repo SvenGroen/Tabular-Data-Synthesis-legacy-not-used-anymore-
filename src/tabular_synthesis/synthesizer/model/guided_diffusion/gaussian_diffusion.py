@@ -172,7 +172,8 @@ class GaussianDiffusion:
             / (1.0 - self.alphas_cumprod)
         )
     def set_loss_mask(self, loss_mask, device):
-        self.loss_mask = loss_mask.to(device)
+        print("Setting Loss Mask")
+        self.loss_mask = loss_mask.int().to(device)
 
     def q_mean_variance(self, x_start, t):
         """
@@ -521,6 +522,11 @@ class GaussianDiffusion:
             img = noise
         else:
             img = th.randn(*shape, device=device)
+            print("Create Noise")
+            
+        print("Noise type: ")
+        print(img.type())
+
         indices = list(range(self.num_timesteps))[::-1]
 
         if progress:
@@ -831,7 +837,12 @@ class GaussianDiffusion:
             # out = th.where(x_start==1, model_output, zeros)
             # tar = th.where(x_start==1, target, zeros)
             # terms["mse@ones"] = mean_flat((tar - out) ** 2)
-            print(f"loss mask coverage: {(th.sum(self.loss_mask)/self.loss_mask.numel())*100} %")
+            print("loss mask sum: ", th.sum(self.loss_mask).item(), "and shape: ", self.loss_mask.shape)
+            print("alternative sum: ", self.loss_mask.sum())
+            print("loss mask nan: ", th.isnan(self.loss_mask).any())
+            print("number of elements: ", self.loss_mask.numel())
+            print("loss mask: ", self.loss_mask)
+            print(f"loss mask coverage: {(th.sum(self.loss_mask).item()/self.loss_mask.numel())*100} %")
             target = target * self.loss_mask
             model_output = model_output * self.loss_mask
 

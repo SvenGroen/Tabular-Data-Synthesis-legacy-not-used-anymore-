@@ -211,7 +211,7 @@ class TabularLoaderIterator(TabularLoader):
             raise StopIteration
         self.num_iterations -= 1
         # batch, c, col, opt = self.get_batch(image_shape=True)
-        batch, c = self.get_batch(image_shape=True, return_test=self.return_test, shuffle_batch=False, padding="same")
+        batch, c = self.get_batch(image_shape=True, return_test=self.return_test, shuffle_batch=False, padding="zero")
         # transform batch tensor to Long tensor
         batch = batch.type(torch.LongTensor)
         # batch.to(torch.half)
