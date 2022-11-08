@@ -155,7 +155,11 @@ class TabularLoader(object):
                 st = ed
             elif item[1] == 'softmax':
                 ed = st + item[0]
-                data_t.append(F.gumbel_softmax(data[:, st:ed], tau=0.2))
+                max_ids = torch.argmax(data[:, st:ed], dim=-1)
+                # create one_hot vector with max_ids
+                one_hot = F.one_hot(max_ids, num_classes=item[0])
+                data_t.append(one_hot)
+                # data_t.append(F.gumbel_softmax(data[:, st:ed],hard=True, tau=0.2))#tau=0.2
                 st = ed
         return torch.cat(data_t, dim=1)
     # def get_noise_batch(self,refresh_cond_vector=False, image_shape=False):
@@ -213,7 +217,7 @@ class TabularLoaderIterator(TabularLoader):
         # batch, c, col, opt = self.get_batch(image_shape=True)
         batch, c = self.get_batch(image_shape=True, return_test=self.return_test, shuffle_batch=False, padding="same")
         # transform batch tensor to Long tensor
-        batch = batch.type(torch.LongTensor)
+        batch = batch.type(torch.FloatTensor)
         # batch.to(torch.half)
         # if "y" in c:
         #     c["y"] = c["y"].to(torch.half)

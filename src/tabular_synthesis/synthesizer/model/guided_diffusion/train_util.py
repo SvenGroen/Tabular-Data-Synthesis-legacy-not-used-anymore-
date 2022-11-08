@@ -241,7 +241,13 @@ class TrainLoop:
                 model_kwargs=micro_cond,
             )
             self.diffusion.set_loss_mask(self.data.loss_mask, device=dist_util.dev())
-            noise =  th.randn_like(batch.to(th.half)) * 0.1 # smaller noise maybe delete later
+
+            # Custom activation function noise
+            noise_scalar = 1
+            noise =  th.randn(batch.shape[0], batch.shape[-1]*batch.shape[-1]) * noise_scalar # smaller noise maybe delete later
+            noise = self.data.tabular_loader.apply_activate(noise) # maybe delete later
+            noise = self.data.tabular_loader.image_transformer.transform(noise, padding="zero")
+            noise = noise.to(th.half).to(dist_util.dev())
             if last_batch or not self.use_ddp:
                 losses = compute_losses(noise=noise)
             else:

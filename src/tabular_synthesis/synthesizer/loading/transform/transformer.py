@@ -416,8 +416,8 @@ class DataTransformer:
         all_ids = np.arange(0, len(data))
         valid_ids = list(set(all_ids) - set(invalid_ids))
 
-        return data_t[valid_ids], len(invalid_ids)
-        # return data_t, len(invalid_ids)
+        # return data_t[valid_ids], len(invalid_ids)
+        return data_t, len(invalid_ids)
 
 
 class ImageTransformer:

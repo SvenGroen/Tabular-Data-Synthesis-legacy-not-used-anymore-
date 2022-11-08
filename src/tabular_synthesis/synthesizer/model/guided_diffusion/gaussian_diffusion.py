@@ -831,7 +831,7 @@ class GaussianDiffusion:
             # out = th.where(x_start==1, model_output, zeros)
             # tar = th.where(x_start==1, target, zeros)
             # terms["mse@ones"] = mean_flat((tar - out) ** 2)
-            print(f"loss mask coverage: {(th.sum(self.loss_mask)/self.loss_mask.numel())*100} %")
+            print(f"loss mask coverage: {(th.sum(self.loss_mask).item()/self.loss_mask.numel())*100} %")
             target = target * self.loss_mask
             model_output = model_output * self.loss_mask
 
