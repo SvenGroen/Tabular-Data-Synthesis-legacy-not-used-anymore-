@@ -233,6 +233,7 @@ class TrainLoop:
             if cond:
                 print("cond: ", cond["y"].type(), cond["y"].device)
             print("model dtype: ", self.model.dtype)
+            self.diffusion.set_loss_mask(self.data.loss_mask, device=dist_util.dev())
             compute_losses = functools.partial(
                 self.diffusion.training_losses,
                 self.ddp_model,
@@ -240,14 +241,16 @@ class TrainLoop:
                 t,
                 model_kwargs=micro_cond,
             )
-            self.diffusion.set_loss_mask(self.data.loss_mask, device=dist_util.dev())
 
-            # Custom activation function noise
-            noise_scalar = 1
-            noise =  th.randn(batch.shape[0], batch.shape[-1]*batch.shape[-1]) * noise_scalar # smaller noise maybe delete later
-            noise = self.data.tabular_loader.apply_activate(noise) # maybe delete later
-            noise = self.data.tabular_loader.image_transformer.transform(noise, padding="zero")
+            # noise_scalar = 0.3
+            # noise =  th.randn(batch.shape[0], batch.shape[-1]*batch.shape[-1]) * noise_scalar # smaller noise maybe delete later
+            # noise = self.data.tabular_loader.apply_activate(noise) # maybe delete later
+            # noise = self.data.tabular_loader.image_transformer.transform(noise, padding="zero")
+            # noise = noise.to(th.half).to(dist_util.dev())
+
+            noise =  th.randn(size=batch.shape) * 0.1 # smaller noise maybe delete later
             noise = noise.to(th.half).to(dist_util.dev())
+
             if last_batch or not self.use_ddp:
                 losses = compute_losses(noise=noise)
             else:

@@ -84,6 +84,8 @@ def main():
     if args.use_fp16:
         model.convert_to_fp16()
     model.eval()
+    print("Model Type: ")
+    print(model.dtype)
 
     print("sampling...")
     all_samples = pd.DataFrame()
@@ -103,17 +105,20 @@ def main():
             diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
         )
 
+        # noise_scalar = 0.3
+        # noise =  th.randn(args.batch_size, args.image_size*args.image_size) * noise_scalar  # smaller noise maybe delete later
+        # noise = tabular_loader.apply_activate(noise) # maybe delete later
+        # noise = tabular_loader.image_transformer.transform(noise, padding="zero")
+        # noise = noise.to(th.half).to(dist_util.dev())
         # noise =  th.randn(size=(args.batch_size, tabular_loader.patch_size, args.image_size, args.image_size)) * 0.1 # smaller noise maybe delete later
-        # Custom activation function noise
-        noise_scalar = 1
-        noise =  th.randn(args.batch_size, args.image_size*args.image_size) * noise_scalar  # smaller noise maybe delete later
-        noise = tabular_loader.apply_activate(noise) # maybe delete later
-        noise = tabular_loader.image_transformer.transform(noise, padding="zero")
-        noise = noise.to(th.half).to(dist_util.dev())
+        # noise = noise.type(th.float)
+        # noise = noise.to(dist_util.dev())
+
         noise =  th.randn(size=(args.batch_size, tabular_loader.patch_size, args.image_size, args.image_size)) * 0.1 # smaller noise maybe delete later
-        noise = noise.float().to(dist_util.dev())
-        
-        
+        noise = noise.type(th.float)
+        noise = noise.to(dist_util.dev())
+        print(noise.shape, noise.type())
+
         sample = sample_fn(
             model,
             (args.batch_size, tabular_loader.patch_size, args.image_size, args.image_size),
